@@ -5,7 +5,20 @@
     <link rel="icon" type="image/svg+xml" href="/convex.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="/src/index.css" />
-    <title>Vite + React + TS</title>
+    <title>Synapse</title>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("synapse-ui-theme");
+          var dark = false;
+          if (t === "dark") dark = true;
+          else if (t === "light") dark = false;
+          else
+            dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.classList.toggle("dark", dark);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

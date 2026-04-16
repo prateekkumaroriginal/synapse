@@ -1,16 +1,28 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
+import "@fontsource-variable/geist/wght.css";
 import "./index.css";
 import App from "./App.tsx";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ConvexAuthProvider client={convex}>
-      <App />
-    </ConvexAuthProvider>
+    <BrowserRouter>
+      <ConvexAuthProvider client={convex}>
+        <ThemeProvider>
+          <TooltipProvider delayDuration={500}>
+            <App />
+            <Toaster richColors closeButton />
+          </TooltipProvider>
+        </ThemeProvider>
+      </ConvexAuthProvider>
+    </BrowserRouter>
   </StrictMode>,
 );
