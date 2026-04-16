@@ -2,7 +2,22 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { projectCreateFormSchema } from "./projectCreateSchema";
+import { projectCreateFormSchema } from "./validations";
+
+export const getProject = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }): Promise<Doc<"projects"> | null> => {
+    const userId: Id<"users"> | null = await getAuthUserId(ctx);
+    if (userId === null) {
+      return null;
+    }
+    const project = await ctx.db.get("projects", projectId);
+    if (project === null || project.ownerId !== userId) {
+      return null;
+    }
+    return project;
+  },
+});
 
 export const listMyProjects = query({
   args: {},

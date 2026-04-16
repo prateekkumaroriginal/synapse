@@ -5,3 +5,12 @@ When working on Convex code, **always read `convex/_generated/ai/guidelines.md` 
 
 Convex agent skills for common tasks can be installed by running `npx convex ai-files install`.
 <!-- convex-ai-end -->
+
+<!-- utility-ai-files-start -->
+# Always read the following guides first for important guidelines on how to correctly use the following:
+- Style Guide: `.guides/style-guide.md` to use the style guide.
+- React Guide: `.guides/react-guide.md` to use React.
+- Package Manager: `pnpm`
+<!-- utility-ai-files-end -->
+
+Keep this file in sync with the `CLAUDE.md` file.

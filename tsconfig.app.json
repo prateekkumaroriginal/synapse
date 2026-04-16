@@ -29,5 +29,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "convex/projectCreateSchema.ts"]
+  "include": ["src", "convex/validations.ts"]
 }

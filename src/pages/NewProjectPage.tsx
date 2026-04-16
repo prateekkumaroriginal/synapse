@@ -7,7 +7,7 @@ import {
   projectCreateFormSchema,
   type ProjectCreateFormValues,
   type ProjectCreateParsed,
-} from "../../convex/projectCreateSchema";
+} from "../../convex/validations";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import {

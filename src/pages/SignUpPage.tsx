@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import {
   emailPasswordFormSchema,
   type EmailPasswordFormValues,
-} from "@/lib/auth-form-schema";
+} from "../../convex/validations";
 
 export default function SignUpPage() {
   return (
