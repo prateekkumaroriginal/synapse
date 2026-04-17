@@ -28,6 +28,7 @@ export function ThemeToggle() {
           type="button"
           variant="ghost"
           size="icon"
+          className="rounded-full"
           aria-label="Choose color theme"
           aria-haspopup="menu"
         >

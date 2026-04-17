@@ -42,9 +42,18 @@ export function TicketRow({
       <div className="min-w-0 pr-4">
         <p className="font-medium text-primary line-clamp-1">{ticket.title}</p>
         {ticket.description ? (
-          <p className="line-clamp-1 text-xs text-muted-foreground mt-0.5">
-            {ticket.description}
-          </p>
+          <TooltipProvider delayDuration={500}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="line-clamp-1 text-xs text-muted-foreground mt-0.5">
+                  {ticket.description}
+                </p>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-sm">{ticket.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         ) : null}
       </div>
       <div>

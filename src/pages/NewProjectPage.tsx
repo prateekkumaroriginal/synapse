@@ -25,6 +25,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function NewProjectPage() {
   const navigate = useNavigate();
@@ -94,7 +95,7 @@ export default function NewProjectPage() {
                   Description
                 </FieldLabel>
                 <FieldContent>
-                  <Input
+                  <Textarea
                     id="new-project-description"
                     autoComplete="off"
                     placeholder="Short summary"

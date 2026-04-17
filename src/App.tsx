@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
 import NewProjectPage from "@/pages/NewProjectPage";
@@ -20,6 +20,7 @@ export default function App() {
         }
       >
         <Route path="/" element={<ProjectsPage />} />
+        <Route path="/projects" element={<Navigate to="/" replace />} />
         <Route path="/projects/new" element={<NewProjectPage />} />
         <Route path="/projects/:projectId" element={<ProjectWorkspacePage />} />
       </Route>

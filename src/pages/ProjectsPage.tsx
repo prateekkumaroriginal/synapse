@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { FolderOpen, Plus } from "lucide-react";
+import { FolderOpen, PlusCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -40,7 +40,7 @@ export default function ProjectsPage() {
         </div>
         <Button type="button" className="shrink-0 self-start sm:self-auto" asChild>
           <Link to="/projects/new">
-            <Plus className="size-4" />
+            <PlusCircle className="size-4" />
             New project
           </Link>
         </Button>
@@ -66,7 +66,7 @@ export default function ProjectsPage() {
           <EmptyContent>
             <Button asChild>
               <Link to="/projects/new">
-                <Plus className="size-4" />
+                <PlusCircle className="size-4" />
                 New project
               </Link>
             </Button>

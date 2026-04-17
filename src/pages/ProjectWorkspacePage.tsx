@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, Search } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowLeft, Search, Ticket } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -13,6 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export default function ProjectWorkspacePage() {
   const params = useParams();
@@ -53,30 +62,33 @@ export default function ProjectWorkspacePage() {
     }
   }
 
-  const filteredTickets = useMemo(() => {
+  const searchFilteredTickets = useMemo(() => {
     if (!tickets) return undefined;
-    return tickets.filter((t) => {
-      const matchesSearch = t.title
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
-      const matchesStatus = filterStatus === "ALL" || t.status === filterStatus;
-      return matchesSearch && matchesStatus;
-    });
-  }, [tickets, searchQuery, filterStatus]);
+    return tickets.filter((t) =>
+      t.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [tickets, searchQuery]);
+
+  const filteredTickets = useMemo(() => {
+    if (!searchFilteredTickets) return undefined;
+    return searchFilteredTickets.filter(
+      (t) => filterStatus === "ALL" || t.status === filterStatus
+    );
+  }, [searchFilteredTickets, filterStatus]);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { ALL: 0 };
     Object.keys(TICKET_STATUS_LABELS).forEach((key) => {
       counts[key] = 0;
     });
-    if (tickets) {
-      tickets.forEach((t) => {
+    if (searchFilteredTickets) {
+      searchFilteredTickets.forEach((t) => {
         counts.ALL++;
         counts[t.status] = (counts[t.status] || 0) + 1;
       });
     }
     return counts;
-  }, [tickets]);
+  }, [searchFilteredTickets]);
 
   if (projectId === null) {
     return (
@@ -116,51 +128,62 @@ export default function ProjectWorkspacePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
-      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="-ms-2 mb-1 h-8 px-2 text-muted-foreground"
-            asChild
-          >
-            <Link to="/">
-              <ArrowLeft className="size-4" />
-              Projects
-            </Link>
-          </Button>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
-          {project.description ? (
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              {project.description}
-            </p>
-          ) : null}
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search..."
-              className="w-full pl-8"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search..."
+                className="w-full pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <CreateTicketDialog projectId={projectId} />
           </div>
-          <CreateTicketDialog projectId={projectId} />
         </div>
+        {project.description ? (
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            {project.description}
+          </p>
+        ) : null}
       </div>
 
-      <div className="flex flex-col gap-6 border rounded-2xl bg-card overflow-hidden">
-        <div className="px-6 pt-6 flex overflow-x-auto pb-2">
+      {tickets !== undefined && tickets.length === 0 ? (
+        <Empty className="min-h-64 rounded-2xl md:min-h-80">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Ticket className="size-6" />
+            </EmptyMedia>
+            <EmptyTitle>No tickets yet</EmptyTitle>
+            <EmptyDescription>
+              Create your first ticket to get started.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <CreateTicketDialog projectId={project._id} />
+          </EmptyContent>
+        </Empty>
+      ) : (
+        <div className="flex flex-col gap-6 border rounded-2xl bg-card overflow-hidden">
+          <div className="px-6 pt-6 flex overflow-x-auto pb-2">
           <Tabs value={filterStatus} onValueChange={setFilterStatus} className="w-full">
             <TabsList className="bg-transparent gap-2 h-auto p-0">
               <TabsTrigger 
                 value="ALL" 
-                className="data-[state=active]:bg-secondary data-[state=active]:shadow-none data-[state=active]:text-secondary-foreground gap-2 rounded-full px-4 py-2"
+                className="relative z-10 hover:bg-transparent !bg-transparent !border-transparent data-[state=active]:!bg-transparent data-[state=active]:!border-transparent data-[state=active]:!shadow-none data-[state=active]:text-secondary-foreground gap-2 rounded-full px-4 py-2"
               >
+                {filterStatus === "ALL" && (
+                  <motion.div
+                    layoutId="active-tab-bubble"
+                    className="absolute inset-0 bg-secondary rounded-full -z-10"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
                 All
                 <Badge variant="outline" className="bg-background text-muted-foreground px-1.5 py-0 min-w-5 justify-center">
                   {statusCounts.ALL}
@@ -170,8 +193,15 @@ export default function ProjectWorkspacePage() {
                 <TabsTrigger 
                   key={status} 
                   value={status} 
-                  className="data-[state=active]:bg-secondary data-[state=active]:shadow-none data-[state=active]:text-secondary-foreground gap-2 rounded-full px-4 py-2"
+                  className="relative z-10 hover:bg-transparent !bg-transparent !border-transparent data-[state=active]:!bg-transparent data-[state=active]:!border-transparent data-[state=active]:!shadow-none data-[state=active]:text-secondary-foreground gap-2 rounded-full px-4 py-2"
                 >
+                  {filterStatus === status && (
+                    <motion.div
+                      layoutId="active-tab-bubble"
+                      className="absolute inset-0 bg-secondary rounded-full -z-10"
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                    />
+                  )}
                   {label}
                   <Badge variant="outline" className="bg-background text-muted-foreground px-1.5 py-0 min-w-5 justify-center">
                     {statusCounts[status]}
@@ -214,6 +244,7 @@ export default function ProjectWorkspacePage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -221,16 +252,15 @@ export default function ProjectWorkspacePage() {
 ProjectWorkspacePage.Skeleton = function ProjectWorkspacePageSkeleton() {
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
-      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-3">
-          <Skeleton className="h-8 w-28 rounded-md" />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <Skeleton className="h-9 w-64 max-w-full rounded-md" />
-          <Skeleton className="h-4 w-full max-w-xl rounded-md" />
+          <div className="flex gap-3">
+            <Skeleton className="h-9 w-64 rounded-md" />
+            <Skeleton className="h-9 w-28 rounded-md" />
+          </div>
         </div>
-        <div className="flex gap-3">
-          <Skeleton className="h-9 w-64 rounded-md" />
-          <Skeleton className="h-9 w-28 rounded-md" />
-        </div>
+        <Skeleton className="h-4 w-full max-w-xl rounded-md" />
       </div>
       <div className="flex flex-col gap-6 border rounded-2xl bg-card overflow-hidden">
         <div className="px-6 pt-6 pb-2 flex gap-2">
