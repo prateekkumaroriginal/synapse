@@ -6,8 +6,9 @@ import {
   prevStatus,
 } from "../../../convex/ticketWorkflow";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export type TicketRowProps = {
@@ -24,84 +25,120 @@ export function TicketRow({
   movingTicketId,
 }: TicketRowProps) {
   const status = ticket.status;
-  const canPrev = prevStatus(status) !== null;
-  const canNext = nextStatus(status) !== null;
+  const prev = prevStatus(status);
+  const next = nextStatus(status);
+  const canPrev = prev !== null;
+  const canNext = next !== null;
   const busy = movingTicketId === ticket._id;
 
+  const dateStr = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(ticket._creationTime);
+
   return (
-    <Card className="rounded-2xl border-border">
-      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={cn(
-                "rounded-md px-2 py-0.5 text-xs font-medium",
-                ticket.type === "BUG"
-                  ? "bg-destructive/15 text-destructive"
-                  : "bg-secondary text-secondary-foreground",
-              )}
+    <div className="group col-span-full grid grid-cols-subgrid items-center border-b border-border bg-background px-4 py-3 transition-colors hover:bg-muted/40 last:border-b-0">
+      <div className="min-w-0 pr-4">
+        <p className="font-medium text-primary line-clamp-1">{ticket.title}</p>
+        {ticket.description ? (
+          <p className="line-clamp-1 text-xs text-muted-foreground mt-0.5">
+            {ticket.description}
+          </p>
+        ) : null}
+      </div>
+      <div>
+        <Badge variant={ticket.type === "BUG" ? "destructive" : "secondary"}>
+          {ticket.type === "BUG" ? "Bug" : "Task"}
+        </Badge>
+      </div>
+      <div className="text-sm">
+        {TICKET_STATUS_LABELS[status]}
+      </div>
+      <div className="text-sm text-muted-foreground whitespace-nowrap">
+        {dateStr}
+      </div>
+      <div className="flex shrink-0 items-center justify-end gap-1 opacity-100 focus-within:opacity-100 transition-opacity md:opacity-0 md:group-[&:hover]:opacity-100">
+        <TooltipProvider delayDuration={0}>
+          {canPrev ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="icon-sm"
+                  disabled={busy}
+                  aria-label="Move ticket back one stage"
+                  onClick={() => onMovePrev(ticket._id)}
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Move to {prev ? TICKET_STATUS_LABELS[prev] : ""}</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button
+              type="button"
+              variant="default"
+              size="icon-sm"
+              disabled
+              aria-label="Cannot move ticket back"
             >
-              {ticket.type === "BUG" ? "Bug" : "Task"}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {TICKET_STATUS_LABELS[status]}
-            </span>
-          </div>
-          <p className="font-medium leading-snug">{ticket.title}</p>
-          {ticket.description ? (
-            <p className="line-clamp-2 text-sm text-muted-foreground">
-              {ticket.description}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            disabled={!canPrev || busy}
-            aria-label="Move ticket back one stage"
-            onClick={() => {
-              onMovePrev(ticket._id);
-            }}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            disabled={!canNext || busy}
-            aria-label="Move ticket forward one stage"
-            onClick={() => {
-              onMoveNext(ticket._id);
-            }}
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+              <ChevronLeft className="size-4" />
+            </Button>
+          )}
+
+          {canNext ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="icon-sm"
+                  disabled={busy}
+                  aria-label="Move ticket forward one stage"
+                  onClick={() => onMoveNext(ticket._id)}
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Move to {next ? TICKET_STATUS_LABELS[next] : ""}</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button
+              type="button"
+              variant="default"
+              size="icon-sm"
+              disabled
+              aria-label="Cannot move ticket forward"
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+          )}
+        </TooltipProvider>
+      </div>
+    </div>
   );
 }
 
 TicketRow.Skeleton = function TicketRowSkeleton() {
   return (
-    <Card className="rounded-2xl border-border">
-      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex gap-2">
-            <Skeleton className="h-5 w-14 rounded-md" />
-            <Skeleton className="h-5 w-24 rounded-md" />
-          </div>
-          <Skeleton className="h-5 max-w-md rounded-md" />
-          <Skeleton className="h-4 w-full max-w-lg rounded-md" />
-        </div>
-        <div className="flex gap-2">
-          <Skeleton className="size-8 rounded-lg" />
-          <Skeleton className="size-8 rounded-lg" />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="col-span-full grid grid-cols-subgrid border-b border-border bg-background px-4 py-3 items-center last:border-b-0">
+      <div className="pr-4 space-y-2">
+        <Skeleton className="h-5 w-3/4 max-w-sm rounded-md" />
+        <Skeleton className="h-4 w-1/2 max-w-xs rounded-md" />
+      </div>
+      <div><Skeleton className="h-5 w-14 rounded-full" /></div>
+      <div><Skeleton className="h-5 w-20 rounded-md" /></div>
+      <div><Skeleton className="h-5 w-24 rounded-md" /></div>
+      <div className="flex justify-end gap-1">
+        <Skeleton className="size-8 rounded-lg" />
+        <Skeleton className="size-8 rounded-lg" />
+      </div>
+    </div>
   );
 };
