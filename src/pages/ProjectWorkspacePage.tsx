@@ -32,7 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-export default function ProjectDetailPage() {
+export default function ProjectWorkspacePage() {
   const params = useParams();
   const rawProjectId = params.projectId ?? "";
   const projectId =
@@ -120,7 +120,7 @@ export default function ProjectDetailPage() {
   }
 
   if (project === undefined) {
-    return <ProjectDetailPage.Skeleton />;
+    return <ProjectWorkspacePage.Skeleton />;
   }
 
   if (project === null) {
@@ -279,7 +279,7 @@ export default function ProjectDetailPage() {
   );
 }
 
-ProjectDetailPage.Skeleton = function ProjectDetailPageSkeleton() {
+ProjectWorkspacePage.Skeleton = function ProjectWorkspacePageSkeleton() {
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
       <div className="space-y-3">

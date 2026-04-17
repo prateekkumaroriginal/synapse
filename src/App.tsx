@@ -2,7 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
 import NewProjectPage from "@/pages/NewProjectPage";
-import ProjectDetailPage from "@/pages/ProjectDetailPage";
+import ProjectWorkspacePage from "@/pages/ProjectWorkspacePage";
 import ProjectsPage from "@/pages/ProjectsPage";
 import SignInPage from "@/pages/SignInPage";
 import SignUpPage from "@/pages/SignUpPage";
@@ -21,7 +21,7 @@ export default function App() {
       >
         <Route path="/" element={<ProjectsPage />} />
         <Route path="/projects/new" element={<NewProjectPage />} />
-        <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+        <Route path="/projects/:projectId" element={<ProjectWorkspacePage />} />
       </Route>
     </Routes>
   );

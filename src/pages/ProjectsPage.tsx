@@ -53,7 +53,7 @@ export default function ProjectsPage() {
           ))}
         </div>
       ) : listState.projects.length === 0 ? (
-        <Empty className="min-h-64 rounded-2xl bg-card/30 md:min-h-80">
+        <Empty className="min-h-64 rounded-2xl md:min-h-80">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <FolderOpen className="size-6" />
