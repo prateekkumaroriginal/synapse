@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Search, Ticket } from "lucide-react";
+import { useQueryStates, parseAsString } from "nuqs";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -43,8 +44,13 @@ export default function ProjectWorkspacePage() {
     null,
   );
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [{ q: searchQuery, status: filterStatus }, setQueryStates] = useQueryStates({
+    q: parseAsString.withDefault(""),
+    status: parseAsString.withDefault("ALL")
+  });
+
+  const setSearchQuery = (q: string) => setQueryStates({ q });
+  const setFilterStatus = (status: string) => setQueryStates({ status });
 
   async function handleMove(
     ticketId: Id<"tickets">,

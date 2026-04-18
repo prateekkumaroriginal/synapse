@@ -18,3 +18,6 @@ SomeComponent.Skeleton = function SomeComponentSkeleton() {
 }
 ```
 - Use shadcn's `empty.tsx` component to show a empty state anywhere.
+
+# URL Management
+- Use `nuqs` for query state management.
