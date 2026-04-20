@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { Button } from "./button";
-import { Home, Mail, Settings, Trash2 } from "lucide-react";
+import { Mail, Loader2, ChevronRight } from "lucide-react";
 
 const meta: Meta<typeof Button> = {
   title: "UI/Button",
@@ -12,21 +12,13 @@ const meta: Meta<typeof Button> = {
   argTypes: {
     variant: {
       control: "select",
-      options: [
-        "default",
-        "primary",
-        "secondary",
-        "destructive",
-        "outline",
-        "ghost",
-        "link",
-      ],
-      description: "Visual style variant of the button",
+      options: ["primary", "secondary", "destructive", "outline", "ghost", "link"],
+      description: "The visual style variant of the button",
     },
     size: {
       control: "select",
-      options: ["default", "sm", "lg", "icon"],
-      description: "Size of the button",
+      options: ["sm", "default", "lg", "icon"],
+      description: "The size of the button",
     },
     disabled: {
       control: "boolean",
@@ -34,7 +26,7 @@ const meta: Meta<typeof Button> = {
     },
     loading: {
       control: "boolean",
-      description: "Whether the button is in loading state",
+      description: "Whether the button is in a loading state",
     },
     asChild: {
       control: "boolean",
@@ -45,12 +37,6 @@ const meta: Meta<typeof Button> = {
 
 export default meta;
 type Story = StoryObj<typeof Button>;
-
-export const Default: Story = {
-  args: {
-    children: "Button",
-  },
-};
 
 export const Primary: Story = {
   args: {
@@ -69,7 +55,7 @@ export const Secondary: Story = {
 export const Destructive: Story = {
   args: {
     variant: "destructive",
-    children: "Destructive Button",
+    children: "Delete Account",
   },
 };
 
@@ -101,6 +87,13 @@ export const Small: Story = {
   },
 };
 
+export const Default: Story = {
+  args: {
+    size: "default",
+    children: "Default Button",
+  },
+};
+
 export const Large: Story = {
   args: {
     size: "lg",
@@ -108,11 +101,11 @@ export const Large: Story = {
   },
 };
 
-export const Icon: Story = {
+export const IconButton: Story = {
   args: {
     size: "icon",
-    children: <Home className="h-4 w-4" />,
-    "aria-label": "Home",
+    "aria-label": "Send email",
+    children: <Mail className="h-4 w-4" />,
   },
 };
 
@@ -127,13 +120,12 @@ export const WithIcon: Story = {
   },
 };
 
-export const WithLeftIcon: Story = {
+export const WithIconRight: Story = {
   args: {
-    variant: "outline",
     children: (
       <>
-        <Settings className="h-4 w-4" />
-        Settings
+        Continue
+        <ChevronRight className="h-4 w-4" />
       </>
     ),
   },
@@ -149,37 +141,31 @@ export const Disabled: Story = {
 export const Loading: Story = {
   args: {
     loading: true,
-    children: "Loading Button",
+    children: "Loading...",
   },
 };
 
-export const LoadingWithoutText: Story = {
+export const LoadingWithIcon: Story = {
   args: {
     loading: true,
-    children: "Please Wait",
+    children: "Please wait",
   },
 };
 
-export const AsChild: Story = {
-  render: () => (
-    <Button asChild>
-      <a href="https://example.com" target="_blank" rel="noopener noreferrer">
-        External Link
-      </a>
-    </Button>
-  ),
+export const AsLink: Story = {
+  args: {
+    asChild: true,
+    children: <a href="https://example.com">Visit Website</a>,
+  },
 };
 
 export const AllVariants: Story = {
   render: () => (
     <div className="flex flex-col gap-4">
       <div className="flex gap-2">
-        <Button variant="default">Default</Button>
         <Button variant="primary">Primary</Button>
         <Button variant="secondary">Secondary</Button>
         <Button variant="destructive">Destructive</Button>
-      </div>
-      <div className="flex gap-2">
         <Button variant="outline">Outline</Button>
         <Button variant="ghost">Ghost</Button>
         <Button variant="link">Link</Button>
@@ -194,36 +180,49 @@ export const AllSizes: Story = {
       <Button size="sm">Small</Button>
       <Button size="default">Default</Button>
       <Button size="lg">Large</Button>
-      <Button size="icon">
-        <Home className="h-4 w-4" />
+      <Button size="icon" aria-label="Icon">
+        <Mail className="h-4 w-4" />
       </Button>
     </div>
   ),
 };
 
-export const DestructiveActions: Story = {
+export const AllStates: Story = {
   render: () => (
-    <div className="flex gap-2">
-      <Button variant="destructive">
-        <Trash2 className="h-4 w-4" />
-        Delete Account
-      </Button>
-      <Button variant="destructive" size="sm">
-        Remove
-      </Button>
-      <Button variant="outline" className="text-red-600 hover:text-red-700">
-        Cancel
-      </Button>
+    <div className="flex flex-col gap-4">
+      <div className="flex gap-2">
+        <Button>Normal</Button>
+        <Button disabled>Disabled</Button>
+        <Button loading>Loading</Button>
+      </div>
+      <div className="flex gap-2">
+        <Button variant="secondary">Normal</Button>
+        <Button variant="secondary" disabled>
+          Disabled
+        </Button>
+        <Button variant="secondary" loading>
+          Loading
+        </Button>
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline">Normal</Button>
+        <Button variant="outline" disabled>
+          Disabled
+        </Button>
+        <Button variant="outline" loading>
+          Loading
+        </Button>
+      </div>
     </div>
   ),
 };
 
-export const InteractivePlayground: Story = {
+export const Playground: Story = {
   args: {
     variant: "primary",
     size: "default",
     disabled: false,
     loading: false,
-    children: "Click Me",
+    children: "Playground Button",
   },
 };
