@@ -2,37 +2,35 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Loader2 } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default:
-          "bg-blue-600 text-white shadow hover:bg-blue-700 focus-visible:ring-blue-600",
         primary:
-          "bg-blue-600 text-white shadow hover:bg-blue-700 focus-visible:ring-blue-600",
+          "bg-primary text-primary-foreground shadow hover:bg-primary/90 focus-visible:ring-primary",
         secondary:
-          "bg-gray-200 text-gray-900 shadow-sm hover:bg-gray-300 focus-visible:ring-gray-400",
+          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 focus-visible:ring-secondary",
         destructive:
-          "bg-red-600 text-white shadow-sm hover:bg-red-700 focus-visible:ring-red-600",
+          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 focus-visible:ring-destructive",
         outline:
-          "border border-gray-300 bg-white shadow-sm hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-gray-400",
+          "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring",
         ghost:
-          "hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-gray-400",
+          "hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring",
         link:
-          "text-blue-600 underline-offset-4 hover:underline focus-visible:ring-blue-600",
+          "text-primary underline-offset-4 hover:underline focus-visible:ring-primary",
       },
       size: {
+        sm: "h-9 rounded-md px-3 text-xs",
         default: "h-10 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-12 rounded-md px-8 text-base",
+        lg: "h-11 rounded-md px-8 text-base",
         icon: "h-10 w-10",
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: "primary",
       size: "default",
     },
   }
@@ -76,19 +74,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        type={asChild ? undefined : type}
         disabled={isDisabled}
+        type={asChild ? undefined : type}
+        onClick={handleClick}
         aria-disabled={isDisabled}
         aria-busy={loading}
-        onClick={handleClick}
         {...props}
       >
-        {loading && (
-          <Loader2
-            className="h-4 w-4 animate-spin"
-            aria-hidden="true"
-          />
-        )}
+        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
         {children}
       </Comp>
     );
@@ -98,3 +91,4 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button";
 
 export { Button, buttonVariants };
+export default Button;
