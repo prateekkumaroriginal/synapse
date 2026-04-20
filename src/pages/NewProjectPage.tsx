@@ -4,9 +4,9 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  projectCreateFormSchema,
-  type ProjectCreateFormValues,
-  type ProjectCreateParsed,
+  projectFormSchema,
+  type ProjectFormValues,
+  type ProjectFormParsed,
 } from "../../convex/validations";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,8 @@ export default function NewProjectPage() {
   const navigate = useNavigate();
   const createProject = useMutation(api.projects.create);
 
-  const form = useForm<ProjectCreateFormValues, unknown, ProjectCreateParsed>({
-    resolver: zodResolver(projectCreateFormSchema),
+  const form = useForm<ProjectFormValues, unknown, ProjectFormParsed>({
+    resolver: zodResolver(projectFormSchema),
     mode: "onTouched",
     defaultValues: {
       name: "",

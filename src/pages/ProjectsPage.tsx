@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { FolderOpen, PlusCircle } from "lucide-react";
+import { Archive, FolderOpen, PlusCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -22,8 +22,8 @@ type ProjectsQueryState =
   | { status: "ready"; projects: ProjectDoc[] };
 
 export default function ProjectsPage() {
-  const raw = useQuery(api.projects.listMyProjects, {});
-  const viewer = useQuery(api.users.getViewerProfile, {});
+  const raw = useQuery(api.projects.listMyProjects);
+  const viewer = useQuery(api.users.getViewerProfile);
   const listState: ProjectsQueryState =
     raw === undefined ? { status: "loading" } : { status: "ready", projects: raw };
 
@@ -38,12 +38,20 @@ export default function ProjectsPage() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Your projects</h1>
         </div>
-        <Button type="button" className="shrink-0 self-start sm:self-auto" asChild>
-          <Link to="/projects/new">
-            <PlusCircle className="size-4" />
-            New project
-          </Link>
-        </Button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center shrink-0">
+          <Button type="button" variant="ghost" className="shrink-0 text-muted-foreground self-start sm:self-auto" asChild>
+            <Link to="/projects/archived">
+              <Archive className="size-4" />
+              Archived projects
+            </Link>
+          </Button>
+          <Button type="button" className="shrink-0 self-start sm:self-auto" asChild>
+            <Link to="/projects/new">
+              <PlusCircle className="size-4" />
+              New project
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {listState.status === "loading" ? (

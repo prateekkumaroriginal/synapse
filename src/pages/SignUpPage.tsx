@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
-  emailPasswordFormSchema,
-  type EmailPasswordFormValues,
+  signUpFormSchema,
+  type SignUpFormValues,
 } from "../../convex/validations";
 
 export default function SignUpPage() {
@@ -30,10 +30,11 @@ export default function SignUpPage() {
 function SignUpForm() {
   const { signIn } = useAuthActions();
 
-  const form = useForm<EmailPasswordFormValues>({
-    resolver: zodResolver(emailPasswordFormSchema),
+  const form = useForm<SignUpFormValues>({
+    resolver: zodResolver(signUpFormSchema),
     mode: "onTouched",
     defaultValues: {
+      name: "",
       email: "",
       password: "",
     },
@@ -47,6 +48,7 @@ function SignUpForm() {
 
   const onSubmit = handleSubmit(async (data) => {
     const formData = new FormData();
+    formData.set("name", data.name);
     formData.set("email", data.email);
     formData.set("password", data.password);
     formData.set("flow", "signUp");
@@ -79,6 +81,24 @@ function SignUpForm() {
         >
           <CardContent className="flex flex-col gap-4 pt-6 pb-0">
             <FieldGroup>
+              <Field data-invalid={!!errors.name}>
+                <FieldLabel htmlFor="signup-name" required>
+                  Full name
+                </FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="signup-name"
+                    type="text"
+                    autoComplete="name"
+                    placeholder="Jane Doe"
+                    className="bg-background"
+                    disabled={isSubmitting}
+                    aria-invalid={!!errors.name}
+                    {...register("name")}
+                  />
+                  <FieldError errors={[errors.name]} />
+                </FieldContent>
+              </Field>
               <Field data-invalid={!!errors.email}>
                 <FieldLabel htmlFor="signup-email" required>
                   Email

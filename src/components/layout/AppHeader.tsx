@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { initialsFromViewer } from "@/lib/viewer-display";
+import { Archive, Settings } from "lucide-react";
 
 export function AppHeader() {
   const viewer = useQuery(api.users.getViewerProfile, {});
@@ -30,7 +31,9 @@ export function AppHeader() {
   const location = useLocation();
 
   const isNewProject = location.pathname === "/projects/new";
-  const isProjectWorkspace = location.pathname.startsWith("/projects/") && !isNewProject;
+  const isArchivedProjects = location.pathname === "/projects/archived";
+  const isProjectWorkspace = location.pathname.startsWith("/projects/") && !isNewProject && !isArchivedProjects;
+  const isSettingsPage = location.pathname.endsWith("/settings");
   
   const segments = location.pathname.split("/");
   const rawProjectId = isProjectWorkspace ? segments[2] : null;
@@ -66,12 +69,40 @@ export function AppHeader() {
                   </BreadcrumbItem>
                 </>
               )}
+              {isArchivedProjects && (
+                <>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage className="inline-flex items-center gap-1.5">
+                      <Archive className="size-4" />
+                      Archived
+                    </BreadcrumbPage>
+                  </BreadcrumbItem>
+                </>
+              )}
               {isProjectWorkspace && (
                 <>
                   <BreadcrumbSeparator />
                   <BreadcrumbItem>
-                    <BreadcrumbPage>{project ? project.name : "..."}</BreadcrumbPage>
+                    {isSettingsPage ? (
+                      <BreadcrumbLink asChild>
+                        <Link to={`/projects/${projectId}`}>{project ? project.name : "..."}</Link>
+                      </BreadcrumbLink>
+                    ) : (
+                      <BreadcrumbPage>{project ? project.name : "..."}</BreadcrumbPage>
+                    )}
                   </BreadcrumbItem>
+                  {isSettingsPage && (
+                    <>
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage className="inline-flex items-center gap-1.5">
+                          <Settings className="size-4" />
+                          Settings
+                        </BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </>
+                  )}
                 </>
               )}
             </BreadcrumbList>

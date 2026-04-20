@@ -1,36 +1,40 @@
 import { z } from "zod";
 
-export const projectCreateFormSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(2, "Name must be at least 2 characters")
-    .max(200, "Name must be at most 200 characters"),
-  description: z
-    .string()
-    .max(1000, "Description must be at most 1000 characters")
-    .transform((s) => {
-      const t = s.trim();
-      return t.length > 0 ? t : undefined;
-    }),
+const titleField = ({
+  minLength = 2,
+  maxLength = 200,
+  label = "Title"
+} = {}) => z
+  .string()
+  .trim()
+  .min(minLength, minLength === 1 ? `${label} is required` : `${label} must be at least ${minLength} characters`)
+  .max(maxLength, `${label} must be at most ${maxLength} characters`);
+
+const descriptionField = ({
+  maxLength = 1000,
+  fieldName = "Description"
+} = {}) => z
+  .string()
+  .max(maxLength, `${fieldName} must be at most ${maxLength} characters`)
+  .optional()
+  .transform((s) => {
+    if (!s) return undefined;
+    const t = s.trim();
+    return t.length > 0 ? t : undefined;
+  });
+
+export const projectFormSchema = z.object({
+  name: titleField({label: "Name"}),
+  description: descriptionField(),
 });
 
-export type ProjectCreateFormValues = z.input<typeof projectCreateFormSchema>;
-export type ProjectCreateParsed = z.output<typeof projectCreateFormSchema>;
+export type ProjectFormValues = z.input<typeof projectFormSchema>;
+export type ProjectFormParsed = z.output<typeof projectFormSchema>;
+
 
 export const ticketCreateFormSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    .min(1, "Title is required")
-    .max(200, "Title must be at most 200 characters"),
-  description: z
-    .string()
-    .max(1000, "Description must be at most 1000 characters")
-    .transform((s) => {
-      const t = s.trim();
-      return t.length > 0 ? t : undefined;
-    }),
+  title: titleField(),
+  description: descriptionField(),
   type: z.enum(["TASK", "BUG"]),
 });
 
@@ -38,14 +42,16 @@ export type TicketCreateFormValues = z.input<typeof ticketCreateFormSchema>;
 export type TicketCreateParsed = z.output<typeof ticketCreateFormSchema>;
 
 export const emailPasswordFormSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .min(1, "Email is required")
-    .email("Enter a valid email"),
+  email: z.email("Enter a valid email"),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters"),
 });
 
 export type EmailPasswordFormValues = z.infer<typeof emailPasswordFormSchema>;
+
+export const signUpFormSchema = emailPasswordFormSchema.extend({
+  name: titleField({label: "Name", minLength: 1, maxLength: 100}),
+});
+
+export type SignUpFormValues = z.infer<typeof signUpFormSchema>;

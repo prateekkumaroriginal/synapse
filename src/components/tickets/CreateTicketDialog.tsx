@@ -36,7 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 export function CreateTicketDialog({ projectId }: { projectId: Id<"projects"> }) {
   const [open, setOpen] = useState(false);

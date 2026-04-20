@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 export type TicketRowProps = {
   ticket: Doc<"tickets">;
@@ -66,7 +65,7 @@ export function TicketRow({
         {dateStr}
       </div>
       <div className="flex shrink-0 items-center justify-end gap-1 opacity-100 focus-within:opacity-100 transition-opacity md:opacity-0 md:group-[&:hover]:opacity-100">
-        <TooltipProvider delayDuration={0}>
+        <TooltipProvider>
           {canPrev ? (
             <Tooltip>
               <TooltipTrigger asChild>

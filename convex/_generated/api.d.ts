@@ -10,10 +10,12 @@
 
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
+import type * as projectMembers from "../projectMembers.js";
 import type * as projects from "../projects.js";
 import type * as ticketWorkflow from "../ticketWorkflow.js";
 import type * as tickets from "../tickets.js";
 import type * as users from "../users.js";
+import type * as utils_projectAccess from "../utils/projectAccess.js";
 import type * as validations from "../validations.js";
 
 import type {
@@ -25,10 +27,12 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   http: typeof http;
+  projectMembers: typeof projectMembers;
   projects: typeof projects;
   ticketWorkflow: typeof ticketWorkflow;
   tickets: typeof tickets;
   users: typeof users;
+  "utils/projectAccess": typeof utils_projectAccess;
   validations: typeof validations;
 }>;
 

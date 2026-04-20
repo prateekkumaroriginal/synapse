@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Search, Ticket } from "lucide-react";
+import { ArrowLeft, Search, Settings, Ticket } from "lucide-react";
 import { useQueryStates, parseAsString } from "nuqs";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -136,7 +136,15 @@ export default function ProjectWorkspacePage() {
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
       <div className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-semibold tracking-tight">{project.name}</h1>
+            <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-foreground" asChild>
+              <Link to={`/projects/${projectId}/settings`}>
+                <Settings className="size-5" />
+                <span className="sr-only">Settings</span>
+              </Link>
+            </Button>
+          </div>
           
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <div className="relative w-full sm:w-64">
