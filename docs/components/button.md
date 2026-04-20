@@ -1,95 +1,82 @@
 # Button Component
 
-A versatile and accessible button component built with React, TypeScript, and Tailwind CSS, following the shadcn/ui design system principles.
+A versatile, accessible button component built with React and styled using Tailwind CSS. The Button component follows the shadcn/ui design system and supports multiple variants, sizes, states, and polymorphic rendering.
 
 ## Installation
 
-The Button component depends on several packages. Ensure you have the following installed:
+The Button component requires the following dependencies:
 
 ```bash
 pnpm add class-variance-authority clsx tailwind-merge @radix-ui/react-slot lucide-react
 ```
+
+Ensure your Tailwind configuration includes the necessary color tokens and animation keyframes.
 
 ## Basic Usage
 
 ```tsx
 import { Button } from "@/components/ui/button";
 
-function Example() {
+export default function Example() {
   return <Button>Click me</Button>;
 }
 ```
 
-## API Reference
-
-### Props
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `variant` | `"default" \| "primary" \| "secondary" \| "destructive" \| "outline" \| "ghost" \| "link"` | `"default"` | Visual style variant of the button |
-| `size` | `"default" \| "sm" \| "lg" \| "icon"` | `"default"` | Size of the button |
-| `disabled` | `boolean` | `false` | Whether the button is disabled |
-| `loading` | `boolean` | `false` | Whether the button is in loading state (shows spinner and disables) |
-| `asChild` | `boolean` | `false` | Merge props with child component (polymorphic rendering) |
-| `type` | `"button" \| "submit" \| "reset"` | `"button"` | HTML button type attribute |
-| `className` | `string` | `undefined` | Additional CSS classes to apply |
-| `children` | `ReactNode` | Required | Button content |
-| `onClick` | `MouseEventHandler` | `undefined` | Click event handler |
-
-The Button component also accepts all standard HTML button attributes.
-
 ## Variants
 
-### Default / Primary
+The Button component supports six visual variants:
 
-The primary action button with high contrast.
+### Primary (Default)
 
 ```tsx
-<Button variant="default">Default Button</Button>
 <Button variant="primary">Primary Button</Button>
 ```
 
-### Secondary
+The primary variant is used for main call-to-action buttons with high emphasis.
 
-For secondary actions with less visual emphasis.
+### Secondary
 
 ```tsx
 <Button variant="secondary">Secondary Button</Button>
 ```
 
-### Destructive
+Secondary buttons provide medium emphasis for secondary actions.
 
-For dangerous or destructive actions like deletion.
+### Destructive
 
 ```tsx
 <Button variant="destructive">Delete Account</Button>
 ```
 
-### Outline
+Use the destructive variant for actions that cannot be undone, such as deletions.
 
-A button with an outlined border and transparent background.
+### Outline
 
 ```tsx
 <Button variant="outline">Outline Button</Button>
 ```
 
-### Ghost
+Outline buttons are good for secondary actions that need clear boundaries.
 
-A minimal button with no background, only showing on hover.
+### Ghost
 
 ```tsx
 <Button variant="ghost">Ghost Button</Button>
 ```
 
-### Link
+Ghost buttons provide minimal visual weight and are useful for tertiary actions.
 
-Styled like a hyperlink with underline on hover.
+### Link
 
 ```tsx
 <Button variant="link">Link Button</Button>
 ```
 
+Link buttons appear as text links but maintain button semantics.
+
 ## Sizes
+
+The Button component supports four size options:
 
 ### Small
 
@@ -100,7 +87,7 @@ Styled like a hyperlink with underline on hover.
 ### Default
 
 ```tsx
-<Button size="default">Default Size</Button>
+<Button size="default">Default Button</Button>
 ```
 
 ### Large
@@ -111,21 +98,35 @@ Styled like a hyperlink with underline on hover.
 
 ### Icon
 
-Square button optimized for icon-only content.
-
 ```tsx
-import { Home } from "lucide-react";
-
-<Button size="icon" aria-label="Home">
-  <Home className="h-4 w-4" />
+<Button size="icon" aria-label="Send email">
+  <Mail className="h-4 w-4" />
 </Button>
 ```
 
-## Advanced Usage
+The icon size creates a square button perfect for icon-only actions.
 
-### With Icons
+## States
 
-Buttons can include icons alongside text:
+### Disabled
+
+```tsx
+<Button disabled>Disabled Button</Button>
+```
+
+Disabled buttons cannot be interacted with and have reduced opacity.
+
+### Loading
+
+```tsx
+<Button loading>Loading...</Button>
+```
+
+The loading state displays a spinner and disables interaction while an async operation completes.
+
+## Icons
+
+### Icon with Text
 
 ```tsx
 import { Mail } from "lucide-react";
@@ -136,266 +137,275 @@ import { Mail } from "lucide-react";
 </Button>
 ```
 
-### Loading State
-
-Show a loading spinner and disable interaction:
+### Icon on Right
 
 ```tsx
-const [loading, setLoading] = useState(false);
+import { ChevronRight } from "lucide-react";
 
-<Button loading={loading} onClick={handleSubmit}>
-  Submit Form
+<Button>
+  Continue
+  <ChevronRight className="h-4 w-4" />
 </Button>
 ```
 
-### Disabled State
+### Icon Only
 
 ```tsx
-<Button disabled>Disabled Button</Button>
+import { Trash2 } from "lucide-react";
+
+<Button size="icon" variant="destructive" aria-label="Delete item">
+  <Trash2 className="h-4 w-4" />
+</Button>
 ```
+
+Always provide an `aria-label` for icon-only buttons to ensure accessibility.
+
+## Advanced Usage
 
 ### Polymorphic Rendering (asChild)
 
-Render the button as a different element while maintaining button styles:
+The `asChild` prop allows the Button to render as a different element while maintaining button styles:
 
 ```tsx
+import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
 <Button asChild>
   <Link to="/dashboard">Go to Dashboard</Link>
 </Button>
-
-<Button asChild>
-  <a href="https://example.com" target="_blank" rel="noopener noreferrer">
-    External Link
-  </a>
-</Button>
 ```
+
+This is particularly useful for:
+- Rendering styled links that look like buttons
+- Integrating with routing libraries
+- Creating custom interactive elements
 
 ### Custom Styling
 
-Merge custom classes with variant styles:
+You can extend or override styles using the `className` prop:
 
 ```tsx
-<Button className="w-full mt-4">
-  Full Width Button
-</Button>
-
-<Button variant="outline" className="border-blue-500 text-blue-500">
-  Custom Colors
-</Button>
+<Button className="w-full mt-4">Full Width Button</Button>
 ```
 
-### Form Submit Button
+The component uses `cn()` utility to intelligently merge Tailwind classes, preventing conflicts.
+
+### Form Integration
 
 ```tsx
 <form onSubmit={handleSubmit}>
+  <input type="text" name="email" />
   <Button type="submit">Submit</Button>
 </form>
 ```
 
-### Button Group
+The Button defaults to `type="button"` to prevent accidental form submissions. Explicitly set `type="submit"` when needed.
+
+### Ref Forwarding
 
 ```tsx
-<div className="flex gap-2">
-  <Button variant="outline">Cancel</Button>
-  <Button variant="primary">Save</Button>
-</div>
+const buttonRef = useRef<HTMLButtonElement>(null);
+
+<Button ref={buttonRef} onClick={() => buttonRef.current?.focus()}>
+  Focus Me
+</Button>
 ```
+
+## API Reference
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `variant` | `"primary" \| "secondary" \| "destructive" \| "outline" \| "ghost" \| "link"` | `"primary"` | Visual style variant |
+| `size` | `"sm" \| "default" \| "lg" \| "icon"` | `"default"` | Button size |
+| `disabled` | `boolean` | `false` | Disables the button |
+| `loading` | `boolean` | `false` | Shows loading spinner and disables button |
+| `asChild` | `boolean` | `false` | Renders as child element (polymorphic) |
+| `className` | `string` | `undefined` | Additional CSS classes |
+| `type` | `"button" \| "submit" \| "reset"` | `"button"` | HTML button type |
+| `onClick` | `(event: React.MouseEvent) => void` | `undefined` | Click event handler |
+| `children` | `React.ReactNode` | - | Button content |
+| `ref` | `React.Ref<HTMLButtonElement>` | `undefined` | Forwarded ref |
+
+All standard HTML button attributes are also supported.
+
+### Exports
+
+- `Button` - The main Button component
+- `ButtonProps` - TypeScript interface for Button props
+- `buttonVariants` - Class variance authority configuration (useful for creating button-styled custom components)
 
 ## Accessibility
 
-The Button component follows accessibility best practices:
+The Button component follows WAI-ARIA best practices:
 
-- **Keyboard Navigation**: Buttons are keyboard accessible via Tab and Enter/Space keys
-- **Focus Management**: Clear focus-visible ring indicators for keyboard navigation
-- **Screen Readers**: Proper ARIA attributes including `aria-disabled` and `aria-busy`
-- **Disabled State**: Disabled buttons use `disabled` attribute and `aria-disabled` for screen readers
-- **Loading State**: Loading buttons set `aria-busy="true"` and disable interaction
-- **Type Attribute**: Defaults to `type="button"` to prevent unintended form submissions
+- **Keyboard Navigation**: Fully keyboard accessible with native button semantics
+- **Focus Management**: Visible focus indicators with `focus-visible:ring-2`
+- **Screen Readers**: 
+  - Uses semantic `<button>` element by default
+  - Supports `aria-label` for icon-only buttons
+  - Sets `aria-disabled` when disabled
+  - Sets `aria-busy` when loading
+- **Color Contrast**: All variants meet WCAG AA contrast requirements
+- **Disabled State**: Uses both `disabled` attribute and `aria-disabled` for maximum compatibility
 
 ### Best Practices
 
-1. **Always provide accessible labels** for icon-only buttons:
+1. **Icon-Only Buttons**: Always provide descriptive `aria-label`:
    ```tsx
    <Button size="icon" aria-label="Close dialog">
      <X className="h-4 w-4" />
    </Button>
    ```
 
-2. **Use semantic HTML** - The button element is used by default, which provides built-in accessibility
-
-3. **Provide clear button text** - Button labels should clearly describe the action
-
-4. **Use appropriate variants** - Destructive actions should use the `destructive` variant
-
-5. **Handle loading states** - Use the `loading` prop to prevent double submissions:
+2. **Loading State**: Inform users about ongoing operations:
    ```tsx
-   const [isLoading, setIsLoading] = useState(false);
-   
-   const handleClick = async () => {
-     setIsLoading(true);
-     try {
-       await submitData();
-     } finally {
-       setIsLoading(false);
-     }
-   };
-   
-   <Button loading={isLoading} onClick={handleClick}>
-     Submit
+   <Button loading disabled={isSubmitting}>
+     {isSubmitting ? "Saving..." : "Save Changes"}
    </Button>
+   ```
+
+3. **Destructive Actions**: Use clear, explicit labels:
+   ```tsx
+   <Button variant="destructive">
+     Delete Account Permanently
+   </Button>
+   ```
+
+4. **Form Submissions**: Set appropriate type:
+   ```tsx
+   <Button type="submit">Submit Form</Button>
+   <Button type="button" onClick={onCancel}>Cancel</Button>
    ```
 
 ## Examples
 
-### Login Form
+### Async Action with Loading State
 
 ```tsx
-function LoginForm() {
-  const [loading, setLoading] = useState(false);
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    // ... authentication logic
-    setLoading(false);
+function AsyncButton() {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleClick = async () => {
+    setIsLoading(true);
+    try {
+      await fetch("/api/data");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* form fields */}
-      <Button type="submit" loading={loading} className="w-full">
-        Sign In
-      </Button>
-    </form>
-  );
-}
-```
-
-### Confirmation Dialog
-
-```tsx
-function DeleteConfirmation() {
-  return (
-    <div className="flex gap-2">
-      <Button variant="outline" onClick={onCancel}>
-        Cancel
-      </Button>
-      <Button variant="destructive" onClick={onConfirm}>
-        <Trash2 className="h-4 w-4" />
-        Delete
-      </Button>
-    </div>
-  );
-}
-```
-
-### Navigation
-
-```tsx
-import { Link } from "react-router-dom";
-
-function Navigation() {
-  return (
-    <nav className="flex gap-2">
-      <Button variant="ghost" asChild>
-        <Link to="/home">Home</Link>
-      </Button>
-      <Button variant="ghost" asChild>
-        <Link to="/about">About</Link>
-      </Button>
-      <Button variant="ghost" asChild>
-        <Link to="/contact">Contact</Link>
-      </Button>
-    </nav>
-  );
-}
-```
-
-## Styling Customization
-
-The button uses Tailwind CSS classes and can be customized through:
-
-1. **Tailwind Config**: Modify colors in your `tailwind.config.js`:
-   ```js
-   module.exports = {
-     theme: {
-       extend: {
-         colors: {
-           primary: '#your-color',
-         },
-       },
-     },
-   };
-   ```
-
-2. **Custom Variants**: Extend the `buttonVariants` in `button.tsx` to add new variants
-
-3. **ClassName Prop**: Pass custom classes directly to the component
-
-## TypeScript
-
-The Button component is fully typed:
-
-```tsx
-import { Button, type ButtonProps } from "@/components/ui/button";
-
-// Custom button wrapper
-function CustomButton({ children, ...props }: ButtonProps) {
-  return (
-    <Button variant="primary" {...props}>
-      {children}
+    <Button loading={isLoading} onClick={handleClick}>
+      {isLoading ? "Loading..." : "Fetch Data"}
     </Button>
   );
 }
 ```
 
-## Migration Guide
+### Button Group
 
-If you're replacing existing buttons:
-
-1. Import the new Button component
-2. Replace `<button>` tags with `<Button>`
-3. Map existing classes to appropriate variants and sizes
-4. Update event handlers (should work seamlessly)
-5. Add accessibility attributes if missing
-
-Before:
 ```tsx
-<button className="bg-blue-500 text-white px-4 py-2 rounded" onClick={handleClick}>
-  Click me
-</button>
+<div className="flex gap-2">
+  <Button variant="outline" onClick={onCancel}>
+    Cancel
+  </Button>
+  <Button variant="primary" onClick={onConfirm}>
+    Confirm
+  </Button>
+</div>
 ```
 
-After:
+### Responsive Button
+
 ```tsx
-<Button variant="primary" onClick={handleClick}>
-  Click me
+<Button size="sm" className="md:hidden">
+  Mobile
+</Button>
+<Button size="default" className="hidden md:inline-flex">
+  Desktop
 </Button>
 ```
 
-## Testing
-
-The Button component includes comprehensive tests. Run tests with:
-
-```bash
-pnpm test button.test.tsx
-```
-
-Example test:
+### Navigation with React Router
 
 ```tsx
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { Button } from "./button";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 
-it("should call onClick handler", async () => {
-  const handleClick = vi.fn();
-  render(<Button onClick={handleClick}>Click me</Button>);
-  
-  await userEvent.click(screen.getByRole("button"));
-  
-  expect(handleClick).toHaveBeenCalledTimes(1);
-});
+<Button asChild>
+  <Link to="/getting-started">
+    Get Started
+    <ArrowRight className="h-4 w-4" />
+  </Link>
+</Button>
 ```
+
+## Troubleshooting
+
+### Styles Not Applying
+
+Ensure your Tailwind configuration includes the component's class names in the content array:
+
+```js
+// tailwind.config.js
+module.exports = {
+  content: [
+    "./src/**/*.{js,jsx,ts,tsx}",
+  ],
+  // ...
+};
+```
+
+### TypeScript Errors with asChild
+
+When using `asChild`, TypeScript may show errors about incompatible props. This is expected as the child component may have different props than a button:
+
+```tsx
+// This is fine - TypeScript will infer from the child
+<Button asChild>
+  <a href="/path">Link</a>
+</Button>
+```
+
+### Loading Spinner Not Showing
+
+Ensure you have `lucide-react` installed and the Tailwind `animate-spin` utility is available:
+
+```bash
+pnpm add lucide-react
+```
+
+## Migration Guide
+
+If migrating from an existing button implementation:
+
+1. **Replace imports**:
+   ```tsx
+   // Before
+   import Button from "./OldButton";
+   
+   // After
+   import { Button } from "@/components/ui/button";
+   ```
+
+2. **Update prop names**: Map your existing props to the new API
+3. **Update variant names**: Ensure variant names match the new system
+4. **Add accessibility attributes**: Enhance icon-only buttons with `aria-label`
+5. **Test thoroughly**: Verify all button interactions work as expected
+
+## Related Components
+
+- **IconButton**: For icon-only actions
+- **ButtonGroup**: For grouping related buttons
+- **DropdownMenu**: For buttons that open menus
+- **Dialog**: For buttons that trigger modals
+
+## Support
+
+For issues, questions, or contributions, please refer to the project's GitHub repository or internal documentation system.
