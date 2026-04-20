@@ -34,3 +34,6 @@ SomeComponent.Skeleton = function SomeComponentSkeleton() {
 
 # URL Management
 - Use `nuqs` for query state management.
+
+# Convex Usage
+- When using `useQuery` with no args (e.g. `useQuery(api.users.getViewerProfile, {})`), don't give empty object as second argument. Use `useQuery(api.users.getViewerProfile)` instead.

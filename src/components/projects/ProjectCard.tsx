@@ -60,7 +60,7 @@ ProjectCard.Skeleton = function ProjectCardSkeleton() {
           <Skeleton className="h-6 max-w-[min(100%,14rem)] flex-1 rounded-md" />
           <Skeleton className="size-9 shrink-0 rounded-full" />
         </div>
-        <div className="min-h-0 flex-1 space-y-2 pt-0.5">
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
           <Skeleton className="h-3 w-full max-w-[90%] rounded-md" />
           <Skeleton className="h-3 w-4/5 max-w-[75%] rounded-md" />
         </div>

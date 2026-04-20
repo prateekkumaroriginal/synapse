@@ -38,12 +38,12 @@ export function TicketRow({
 
   return (
     <div className="group col-span-full grid grid-cols-subgrid items-center border-b border-border bg-background px-4 py-3 transition-colors hover:bg-muted/40 last:border-b-0">
-      <div className="min-w-0 pr-4">
+      <div className="flex min-w-0 flex-col gap-0.5 pr-4">
         <p className="font-medium text-primary line-clamp-1">{ticket.title}</p>
         {ticket.description ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <p className="line-clamp-1 text-xs text-muted-foreground mt-0.5">
+              <p className="line-clamp-1 text-xs text-muted-foreground">
                 {ticket.description}
               </p>
             </TooltipTrigger>
@@ -53,11 +53,9 @@ export function TicketRow({
           </Tooltip>
         ) : null}
       </div>
-      <div>
-        <Badge variant={ticket.type === "BUG" ? "destructive" : "secondary"}>
-          {ticket.type === "BUG" ? "Bug" : "Task"}
-        </Badge>
-      </div>
+      <Badge variant={ticket.type === "BUG" ? "destructive" : "secondary"}>
+        {ticket.type === "BUG" ? "Bug" : "Task"}
+      </Badge>
       <div className="text-sm">
         {TICKET_STATUS_LABELS[status]}
       </div>
@@ -134,7 +132,7 @@ export function TicketRow({
 TicketRow.Skeleton = function TicketRowSkeleton() {
   return (
     <div className="col-span-full grid grid-cols-subgrid border-b border-border bg-background px-4 py-3 items-center last:border-b-0">
-      <div className="pr-4 space-y-2">
+      <div className="flex flex-col gap-2 pr-4">
         <Skeleton className="h-5 w-3/4 max-w-sm rounded-md" />
         <Skeleton className="h-4 w-1/2 max-w-xs rounded-md" />
       </div>

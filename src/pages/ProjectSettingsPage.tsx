@@ -32,7 +32,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { initialsFromViewer } from "@/lib/viewer-display";
-
 import { ConfirmDangerDialog } from "@/components/projects/ConfirmDangerDialog";
 import { InviteMemberDialog } from "@/components/projects/InviteMemberDialog";
 
@@ -186,7 +185,7 @@ export default function ProjectSettingsPage() {
           </CardHeader>
           <CardContent>
             {isOwner ? (
-              <form onSubmit={(e) => void onUpdateSubmit(e)} className="space-y-4">
+              <form onSubmit={(e) => void onUpdateSubmit(e)} className="flex flex-col gap-4">
                 <FieldGroup>
                   <Field data-invalid={!!errors.name}>
                     <FieldLabel htmlFor="settings-name" required>
@@ -226,14 +225,14 @@ export default function ProjectSettingsPage() {
                 </div>
               </form>
             ) : (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Name</h3>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-sm font-medium text-muted-foreground">Name</h3>
                   <p className="text-base">{project.name}</p>
                 </div>
                 {project.description && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Description</h3>
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
                     <p className="text-base">{project.description}</p>
                   </div>
                 )}
@@ -244,7 +243,7 @@ export default function ProjectSettingsPage() {
 
         <Card className="rounded-2xl">
           <CardHeader className="flex flex-row items-center justify-between pb-6">
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <CardTitle>Project Members</CardTitle>
               <CardDescription>
                 People with access to this project.
@@ -258,7 +257,7 @@ export default function ProjectSettingsPage() {
           </CardHeader>
           <CardContent>
             {members === undefined ? (
-              <div className="space-y-4">
+              <div className="flex flex-col gap-4">
                 <Skeleton className="h-14 w-full rounded-md" />
                 <Skeleton className="h-14 w-full rounded-md" />
               </div>
@@ -369,7 +368,7 @@ export default function ProjectSettingsPage() {
         open={inviteOpen}
         onOpenChange={setInviteOpen}
       />
-      
+
       <ConfirmDangerDialog
         action={dangerAction || "Archive"}
         open={dangerAction !== null}

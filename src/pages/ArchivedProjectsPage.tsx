@@ -14,8 +14,8 @@ import {
 import { initialsFromViewer } from "@/lib/viewer-display";
 
 export default function ArchivedProjectsPage() {
-  const projects = useQuery(api.projects.listArchivedProjects, {});
-  const viewer = useQuery(api.users.getViewerProfile, {});
+  const projects = useQuery(api.projects.listArchivedProjects);
+  const viewer = useQuery(api.users.getViewerProfile);
 
   const ownerInitials =
     viewer === undefined
@@ -37,7 +37,7 @@ export default function ArchivedProjectsPage() {
 
       {projects === undefined ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 3 }, (_, index) => (
+          {Array.from({ length: 6 }, (_, index) => (
             <ProjectCard.Skeleton key={index} />
           ))}
         </div>

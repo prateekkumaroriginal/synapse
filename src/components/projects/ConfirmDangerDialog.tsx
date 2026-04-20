@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +22,8 @@ type ConfirmDangerDialogProps = {
   isPending?: boolean;
 };
 
+type FormValues = { confirmText: string };
+
 export function ConfirmDangerDialog({
   action,
   projectName,
@@ -27,14 +32,24 @@ export function ConfirmDangerDialog({
   onConfirm,
   isPending,
 }: ConfirmDangerDialogProps) {
-  const [confirmText, setConfirmText] = useState("");
   const expectedText = `I confirm to ${action} ${projectName}`;
-  const isMatch = confirmText === expectedText;
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(
+      z.object({ confirmText: z.literal(expectedText) }),
+    ),
+    defaultValues: { confirmText: "" },
+    mode: "onChange",
+  });
+
+  useEffect(() => {
+    if (!open) {
+      form.reset();
+    }
+  }, [open, form]);
 
   const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      setConfirmText("");
-    }
+    if (!newOpen) form.reset();
     onOpenChange(newOpen);
   };
 
@@ -53,38 +68,33 @@ export function ConfirmDangerDialog({
             to confirm.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4">
+
+        <form onSubmit={form.handleSubmit(onConfirm)} className="py-4">
           <Input
             autoFocus
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
+            {...form.register("confirmText")}
             placeholder={expectedText}
-            className="w-full"
             disabled={isPending}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && isMatch && !isPending) {
-                e.preventDefault();
-                onConfirm();
-              }
-            }}
           />
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => handleOpenChange(false)}
-            disabled={isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={!isMatch || isPending}
-            onClick={onConfirm}
-          >
-            {isPending ? "Please wait..." : action}
-          </Button>
-        </DialogFooter>
+
+          <DialogFooter className="mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="destructive"
+              disabled={!form.formState.isValid || isPending}
+            >
+              {isPending ? "Please wait..." : action}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

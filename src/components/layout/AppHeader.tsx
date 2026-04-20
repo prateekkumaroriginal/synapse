@@ -34,11 +34,11 @@ export function AppHeader() {
   const isArchivedProjects = location.pathname === "/projects/archived";
   const isProjectWorkspace = location.pathname.startsWith("/projects/") && !isNewProject && !isArchivedProjects;
   const isSettingsPage = location.pathname.endsWith("/settings");
-  
+
   const segments = location.pathname.split("/");
   const rawProjectId = isProjectWorkspace ? segments[2] : null;
   const projectId = rawProjectId ? (rawProjectId as Id<"projects">) : null;
-  
+
   const project = useQuery(
     api.projects.getProject,
     projectId ? { projectId } : "skip"

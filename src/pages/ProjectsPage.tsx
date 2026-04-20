@@ -35,9 +35,7 @@ export default function ProjectsPage() {
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Your projects</h1>
-        </div>
+        <h1 className="text-3xl font-semibold tracking-tight">Your projects</h1>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center shrink-0">
           <Button type="button" variant="ghost" className="shrink-0 text-muted-foreground self-start sm:self-auto" asChild>
             <Link to="/projects/archived">

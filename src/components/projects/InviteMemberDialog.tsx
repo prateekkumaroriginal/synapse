@@ -15,12 +15,68 @@ import { Input } from "@/components/ui/input";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Loader2, Search, UserPlus } from "lucide-react";
 import { initialsFromViewer } from "@/lib/viewer-display";
 import { useDebounce } from "@/hooks/use-debounce";
+
+type UserResult = {
+  _id: Id<"users">;
+  name: string;
+  email: string;
+};
+
+function UserResultItem({
+  user,
+  addingId,
+  onAdd,
+}: {
+  user: UserResult;
+  addingId: Id<"users"> | null;
+  onAdd: (userId: Id<"users">) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+      <div className="flex items-center gap-3 overflow-hidden">
+        <Avatar className="size-9 shrink-0">
+          <AvatarFallback className="bg-secondary text-xs font-medium">
+            {initialsFromViewer(user.email, user.name)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex flex-col overflow-hidden">
+          <span className="truncate text-sm font-medium">
+            {user.name || "Unknown"}
+          </span>
+          {user.email && (
+            <span className="truncate text-xs text-muted-foreground">
+              {user.email}
+            </span>
+          )}
+        </div>
+      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="icon"
+            variant="secondary"
+            className="shrink-0"
+            disabled={addingId !== null}
+            onClick={() => onAdd(user._id)}
+          >
+            {addingId === user._id ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <UserPlus className="size-4" />
+            )}
+            <span className="sr-only">Add to Project</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Add to Project</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
 
 export function InviteMemberDialog({
   projectId,
@@ -94,47 +150,12 @@ export function InviteMemberDialog({
               </div>
             ) : (
               results.map((user) => (
-                <div
+                <UserResultItem
                   key={user._id}
-                  className="flex items-center justify-between gap-3 rounded-lg border p-3"
-                >
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <Avatar className="size-9 shrink-0">
-                      <AvatarFallback className="bg-secondary text-xs font-medium">
-                        {initialsFromViewer(user.email, user.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col overflow-hidden">
-                      <span className="truncate text-sm font-medium">
-                        {user.name || "Unknown"}
-                      </span>
-                      {user.email && (
-                        <span className="truncate text-xs text-muted-foreground">
-                          {user.email}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        className="shrink-0"
-                        disabled={addingId !== null}
-                        onClick={() => void handleAdd(user._id)}
-                      >
-                        {addingId === user._id ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <UserPlus className="size-4" />
-                        )}
-                        <span className="sr-only">Add to Project</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Add to Project</TooltipContent>
-                  </Tooltip>
-                </div>
+                  user={user}
+                  addingId={addingId}
+                  onAdd={(id) => void handleAdd(id)}
+                />
               ))
             )}
           </div>

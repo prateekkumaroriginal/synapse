@@ -71,7 +71,7 @@ export default function NewProjectPage() {
           </CardTitle>
         </CardHeader>
         <form onSubmit={(e) => void onSubmit(e)}>
-          <CardContent className="space-y-6 pt-0">
+          <CardContent className="flex flex-col gap-6 pt-0">
             <FieldGroup>
               <Field data-invalid={!!errors.name}>
                 <FieldLabel htmlFor="new-project-name" required>
