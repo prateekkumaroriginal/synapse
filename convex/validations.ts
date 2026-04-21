@@ -31,6 +31,15 @@ export const projectFormSchema = z.object({
 export type ProjectFormValues = z.input<typeof projectFormSchema>;
 export type ProjectFormParsed = z.output<typeof projectFormSchema>;
 
+export const resourceFormSchema = z.object({
+  url: z.string().trim().url("Enter a valid URL"),
+  label: z.optional(titleField({ label: "Label", minLength: 1 })).or(z.literal("")).transform((s) => (s === "" || s === undefined ? undefined : s)),
+  domain: titleField({ label: "Domain", minLength: 1, maxLength: 200 }),
+});
+
+export type ResourceFormValues = z.input<typeof resourceFormSchema>;
+export type ResourceFormParsed = z.output<typeof resourceFormSchema>;
+
 
 export const ticketCreateFormSchema = z.object({
   title: titleField(),

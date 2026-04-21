@@ -34,6 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { initialsFromViewer } from "@/lib/viewer-display";
 import { ConfirmDangerDialog } from "@/components/projects/ConfirmDangerDialog";
 import { InviteMemberDialog } from "@/components/projects/InviteMemberDialog";
+import { ResourcesCard } from "@/components/projects/ResourcesCard";
 
 export default function ProjectSettingsPage() {
   const params = useParams();
@@ -240,6 +241,8 @@ export default function ProjectSettingsPage() {
             )}
           </CardContent>
         </Card>
+
+        <ResourcesCard projectId={projectId} isOwner={isOwner} />
 
         <Card className="rounded-2xl">
           <CardHeader className="flex flex-row items-center justify-between pb-6">

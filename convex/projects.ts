@@ -183,6 +183,14 @@ export const deleteProject = mutation({
       await ctx.db.delete(m._id);
     }
 
+    const resources = await ctx.db
+      .query("projectResources")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    for (const r of resources) {
+      await ctx.db.delete(r._id);
+    }
+
     await ctx.db.delete(args.projectId);
   },
 });

@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
 import type * as projectMembers from "../projectMembers.js";
+import type * as projectResources from "../projectResources.js";
 import type * as projects from "../projects.js";
 import type * as ticketWorkflow from "../ticketWorkflow.js";
 import type * as tickets from "../tickets.js";
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   http: typeof http;
   projectMembers: typeof projectMembers;
+  projectResources: typeof projectResources;
   projects: typeof projects;
   ticketWorkflow: typeof ticketWorkflow;
   tickets: typeof tickets;

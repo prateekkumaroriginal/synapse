@@ -55,4 +55,10 @@ export default defineSchema({
     type: ticketType,
     status: ticketStatus,
   }).index("by_project", ["projectId"]),
+  projectResources: defineTable({
+    projectId: v.id("projects"),
+    url: v.string(),
+    label: v.optional(v.string()),
+    domain: v.string(),
+  }).index("by_project", ["projectId"]),
 });
