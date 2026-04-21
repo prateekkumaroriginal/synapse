@@ -36,7 +36,7 @@ export const add = mutation({
 
     const parsed = resourceFormSchema.parse({
       url: args.url,
-      label: args.label ?? "",
+      label: args.label,
       domain: args.domain,
     });
 
@@ -67,7 +67,7 @@ export const update = mutation({
 
     const parsed = resourceFormSchema.parse({
       url: args.url,
-      label: args.label ?? "",
+      label: args.label,
       domain: args.domain,
     });
 

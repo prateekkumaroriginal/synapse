@@ -24,7 +24,7 @@ const descriptionField = ({
   });
 
 export const projectFormSchema = z.object({
-  name: titleField({label: "Name"}),
+  name: titleField({ label: "Name" }),
   description: descriptionField(),
 });
 
@@ -32,14 +32,13 @@ export type ProjectFormValues = z.input<typeof projectFormSchema>;
 export type ProjectFormParsed = z.output<typeof projectFormSchema>;
 
 export const resourceFormSchema = z.object({
-  url: z.string().trim().url("Enter a valid URL"),
-  label: z.optional(titleField({ label: "Label", minLength: 1 })).or(z.literal("")).transform((s) => (s === "" || s === undefined ? undefined : s)),
+  url: z.url("Enter a valid URL"),
+  label: z.optional(titleField({ label: "Label", minLength: 1 })),
   domain: titleField({ label: "Domain", minLength: 1, maxLength: 200 }),
 });
 
 export type ResourceFormValues = z.input<typeof resourceFormSchema>;
 export type ResourceFormParsed = z.output<typeof resourceFormSchema>;
-
 
 export const ticketCreateFormSchema = z.object({
   title: titleField(),
@@ -60,7 +59,7 @@ export const emailPasswordFormSchema = z.object({
 export type EmailPasswordFormValues = z.infer<typeof emailPasswordFormSchema>;
 
 export const signUpFormSchema = emailPasswordFormSchema.extend({
-  name: titleField({label: "Name", minLength: 1, maxLength: 100}),
+  name: titleField({ label: "Name", minLength: 1, maxLength: 100 }),
 });
 
 export type SignUpFormValues = z.infer<typeof signUpFormSchema>;

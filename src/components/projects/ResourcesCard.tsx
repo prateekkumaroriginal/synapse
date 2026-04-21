@@ -48,7 +48,11 @@ export function ResourcesCard({ projectId, isOwner }: ResourcesCardProps) {
   const form = useForm<ResourceFormValues>({
     resolver: zodResolver(resourceFormSchema),
     mode: "onTouched",
-    defaultValues: { url: "", label: "", domain: "" },
+    defaultValues: {
+      url: "",
+      label: "",
+      domain: ""
+    },
   });
 
   const {
@@ -63,7 +67,7 @@ export function ResourcesCard({ projectId, isOwner }: ResourcesCardProps) {
       await addResource({
         projectId,
         url: data.url,
-        label: data.label || undefined,
+        label: data.label,
         domain: data.domain,
       });
       reset();
@@ -112,36 +116,12 @@ export function ResourcesCard({ projectId, isOwner }: ResourcesCardProps) {
         ) : (
           <div className="flex flex-col gap-2">
             {resources.map((resource) => (
-              <div
+              <ResourceItem
                 key={resource._id}
-                className="flex items-center justify-between gap-3 rounded-lg border p-3"
-              >
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <Badge variant="secondary" className="shrink-0 font-normal">
-                    {resource.domain}
-                  </Badge>
-                  <a
-                    href={resource.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 truncate text-sm text-foreground underline-offset-4 hover:underline"
-                  >
-                    {resource.label ?? resource.url}
-                    <ExternalLink className="size-3 shrink-0 text-muted-foreground" />
-                  </a>
-                </div>
-                {isOwner && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => void handleRemove(resource._id)}
-                  >
-                    <Trash2 className="size-4" />
-                    <span className="sr-only">Remove resource</span>
-                  </Button>
-                )}
-              </div>
+                resource={resource}
+                isOwner={isOwner}
+                onRemove={(id) => void handleRemove(id)}
+              />
             ))}
           </div>
         )}
@@ -210,6 +190,49 @@ export function ResourcesCard({ projectId, isOwner }: ResourcesCardProps) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+interface ResourceItemProps {
+  resource: {
+    _id: Id<"projectResources">;
+    url: string;
+    label?: string;
+    domain: string;
+  };
+  isOwner: boolean;
+  onRemove: (id: Id<"projectResources">) => void;
+}
+
+function ResourceItem({ resource, isOwner, onRemove }: ResourceItemProps) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+      <div className="flex items-center gap-3 overflow-hidden">
+        <Badge variant="secondary">
+          {resource.domain}
+        </Badge>
+        <a
+          href={resource.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 truncate text-sm text-foreground underline-offset-4 hover:underline"
+        >
+          {resource.label ?? resource.url}
+          <ExternalLink className="size-3 shrink-0 text-muted-foreground" />
+        </a>
+      </div>
+      {isOwner && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="shrink-0 text-muted-foreground hover:text-destructive"
+          onClick={() => onRemove(resource._id)}
+        >
+          <Trash2 className="size-4" />
+          <span className="sr-only">Remove resource</span>
+        </Button>
+      )}
+    </div>
   );
 }
 
