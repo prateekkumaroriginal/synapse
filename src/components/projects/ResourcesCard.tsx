@@ -8,6 +8,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import {
   resourceFormSchema,
   type ResourceFormValues,
+  type ResourceFormParsed,
 } from "../../../convex/validations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,7 @@ export function ResourcesCard({ projectId, isOwner }: ResourcesCardProps) {
   const addResource = useMutation(api.projectResources.add);
   const removeResource = useMutation(api.projectResources.remove);
 
-  const form = useForm<ResourceFormValues>({
+  const form = useForm<ResourceFormValues, unknown, ResourceFormParsed>({
     resolver: zodResolver(resourceFormSchema),
     mode: "onTouched",
     defaultValues: {

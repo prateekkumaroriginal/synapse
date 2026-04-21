@@ -33,7 +33,7 @@ export type ProjectFormParsed = z.output<typeof projectFormSchema>;
 
 export const resourceFormSchema = z.object({
   url: z.url("Enter a valid URL"),
-  label: z.optional(titleField({ label: "Label", minLength: 1 })),
+  label: z.string().optional().transform((s) => s?.trim() || undefined),
   domain: titleField({ label: "Domain", minLength: 1, maxLength: 200 }),
 });
 
