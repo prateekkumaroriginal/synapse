@@ -60,6 +60,13 @@ export const create = mutation({
   },
 });
 
+/**
+ * @deprecated Use `workflowEngine.advancePhase` / `workflowEngine.rewindPhase`
+ * instead.  Those mutations enforce approval gates and are the canonical way to
+ * move tickets through the AI workflow.  This function is kept only for
+ * backwards-compatibility with existing UI code and will be removed once the
+ * new ticket detail UI (Phase 4) ships.
+ */
 export const move = mutation({
   args: {
     ticketId: v.id("tickets"),
