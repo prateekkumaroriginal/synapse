@@ -77,43 +77,44 @@ flowchart LR
 ---
 ---
 
-# Phase 1 — Schema & Workflow Engine
+# Phase 1 — Schema & Workflow Engine ✅ COMPLETE
 
 > **Goal**: Lay the backend foundation — new tables, strict state machine, gate logic. No UI changes, no jobs yet.
 
+> [!NOTE]
+> **This phase is fully implemented.** Both `convex/schema.ts` and `convex/workflowEngine.ts` already reflect everything described below. Several items originally deferred to Phase 2 (artifact schema finalization) and Phase 3 (asyncJobs schema finalization) were implemented eagerly — see callouts per item.
+
 ### Scope
 
-1. **Extend [`convex/schema.ts`](convex/schema.ts)**:
-   - Add git fields on `projects` table: `gitRemoteUrl`, `defaultBranch`, `btcaProjectId` (all optional strings).
-   - Stub tables **`artifactVersions`** and **`asyncJobs`** (define full schemas now, but mutations come in later phases).
-   - **No separate gate table** — gate state is derived on-the-fly by querying `artifactVersions` (for approved AC/PLAN) and `validationRuns` (for validation status). This avoids dual-write complexity.
+1. **Extend [`convex/schema.ts`](convex/schema.ts)** — ✅ Done:
+   - Git fields on `projects`: `gitRemoteUrl`, `defaultBranch`, `btcaProjectId` — all optional strings — are live.
+   - **`artifactVersions`** table — full schema is already defined (not a stub): `ticketId`, `kind` (`"AC" | "PLAN" | "CODE"`), `version`, `content`, `status` (`"draft" | "approved" | "rejected"`), `userPrompt?`, `parentVersionId?`, `createdByJobId?`. Indexes: `by_ticketId`, `by_ticketId_and_kind`. *(The "finalize in Phase 2" step is pre-done.)*
+   - **`asyncJobs`** table — full schema is already defined (not a stub): `ticketId`, `projectId`, `type` (includes `CREATE_PR`), `status`, `attempt`, `args`, `result?`, `error?`, `idempotencyKey`, `artifactVersionId?`, `startedAt?`, `finishedAt?`. Indexes: `by_status`, `by_ticketId`, `by_projectId`, `by_idempotencyKey`. *(The "finalize in Phase 3" step is pre-done.)*
+   - **No separate gate table** — gate state is derived on-the-fly by querying `artifactVersions` (and later `validationRuns`).
 
-2. **New module [`convex/workflowEngine.ts`](convex/workflowEngine.ts)**:
-   - Helper `canAdvance(ctx, ticketId, targetPhase): { allowed: boolean, reason?: string }` — queries `artifactVersions` to derive gate state:
-     - `BACKLOG → TEST_CASE`: always allowed.
-     - `TEST_CASE → PLANNING`: queries for an `artifactVersion` with `kind: "AC"` and `status: "approved"` for this ticket.
-     - `PLANNING → CODE_GENERATION`: queries for an `artifactVersion` with `kind: "PLAN"` and `status: "approved"`.
-     - `CODE_GENERATION → COMPLETED`: queries `validationRuns` for latest `overallStatus === "PASSED"` (stubbed as always-true for now).
-   - Public mutation **`advancePhase({ ticketId, to })`**: validates access via `assertProjectAccess`, calls `canAdvance`, patches ticket status.
-   - Public mutation **`rewindPhase({ ticketId, to })`**: allows moving backwards (deletes downstream artifact versions if desired, or just allows re-entry).
+2. **[`convex/workflowEngine.ts`](convex/workflowEngine.ts)** — ✅ Done (real queries, not stubs):
+   - `TICKET_STATUSES`-driven `GATED_PHASES` map ties each phase to its required artifact kind.
+   - `canAdvance(ctx, ticketId, currentPhase, targetPhase)` — enforces forward-only single-step moves and queries `artifactVersions` with `by_ticketId_and_kind` + `.filter(status === "approved")`. *(The "real artifact queries" step from Phase 2 is pre-done.)*
+   - `CODE_GENERATION → COMPLETED` validation-run check is stubbed with a `// TODO Phase 8` comment (correct).
+   - `advancePhase({ ticketId, to })` — authenticates via `getAuthUserId`, authorizes via `assertProjectAccess`, calls `canAdvance`, patches ticket `status`.
+   - `rewindPhase({ ticketId, to })` — authenticates + authorizes identically, validates the target is strictly backward (`targetIndex < currentIndex`), patches ticket `status`. **Does not delete downstream artifact versions** — re-entry into a phase with existing approved artifacts is intentionally allowed.
 
-3. **Deprecate or narrow [`convex/tickets.ts`](convex/tickets.ts) `move`**:
-   - Keep it working for existing tickets (migration path) but gate new usage through `advancePhase`.
+3. **[`convex/tickets.ts`](convex/tickets.ts) `move`** — still present, backwards-compatible. Can be narrowed or deprecated in a follow-up.
 
 ### Key files
 
-| Action | File |
-|--------|------|
-| MODIFY | [`convex/schema.ts`](convex/schema.ts) |
-| NEW    | [`convex/workflowEngine.ts`](convex/workflowEngine.ts) |
-| MODIFY | [`convex/tickets.ts`](convex/tickets.ts) |
+| Action | File | Status |
+|--------|------|--------|
+| MODIFY | [`convex/schema.ts`](convex/schema.ts) | ✅ Done |
+| NEW    | [`convex/workflowEngine.ts`](convex/workflowEngine.ts) | ✅ Done |
+| MODIFY | [`convex/tickets.ts`](convex/tickets.ts) — narrow `move` | ⏭ Deferred (still works as-is) |
 
 ### How to test
 
-1. `npx convex dev` — schema deploys successfully.
+1. `npx convex dev` — schema deploys successfully (all three new tables + updated `projects`).
 2. In the Convex dashboard, create a ticket → verify it starts in `BACKLOG`.
 3. Call `advancePhase` with `to: "TEST_CASE"` → succeeds.
-4. Call `advancePhase` with `to: "PLANNING"` → **fails** with "AC not approved" (no artifact exists yet).
+4. Call `advancePhase` with `to: "PLANNING"` → **fails** with `"Cannot advance: acceptance criteria must be approved first"`.
 5. Call `rewindPhase` with `to: "BACKLOG"` → succeeds, ticket goes back.
 6. Existing `move` mutation still works for backwards compatibility.
 
