@@ -13,5 +13,3 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 - Style Guide: `.guides/style-guide.md` to use the style guide.
 - React Guide: `.guides/react-guide.md` to use React.
 <!-- utility-ai-files-end -->
-
-Keep this file in sync with the `CLAUDE.md` file.
