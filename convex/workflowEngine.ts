@@ -17,6 +17,7 @@ export type TicketPhase = (typeof TICKET_STATUSES)[number];
 const GATED_PHASES: Partial<Record<TicketPhase, { kind: "AC" | "PLAN" | "CODE" }>> = {
   TEST_CASE: { kind: "AC" },
   PLANNING: { kind: "PLAN" },
+  CODE_GENERATION: { kind: "CODE" },
 };
 
 // ---------------------------------------------------------------------------
@@ -69,19 +70,18 @@ async function canAdvance(
     }
   }
 
-  // Code generation → Completed: require latest validation to have PASSED
-  // (stubbed as always-true in Phase 1; Phase 8 will wire real validationRuns)
-  if (currentPhase === "CODE_GENERATION" && targetPhase === "COMPLETED") {
-    // TODO Phase 8: query validationRuns for latest PASSED run
-    // const latestRun = await ctx.db
-    //   .query("validationRuns")
-    //   .withIndex("by_ticketId", (q) => q.eq("ticketId", ticketId))
-    //   .order("desc")
-    //   .first();
-    // if (!latestRun || latestRun.overallStatus !== "PASSED") {
-    //   return { allowed: false, reason: "Validation must pass before completing" };
-    // }
-  }
+  // TODO Phase 8: also require the latest validationRun to have PASSED before
+  // completing. The approved-CODE artifact gate above is enforced via GATED_PHASES;
+  // the validation-run check is a separate, additive condition.
+  // Example:
+  //   const latestRun = await ctx.db
+  //     .query("validationRuns")
+  //     .withIndex("by_ticketId", (q) => q.eq("ticketId", ticketId))
+  //     .order("desc")
+  //     .first();
+  //   if (!latestRun || latestRun.overallStatus !== "PASSED") {
+  //     return { allowed: false, reason: "Validation must pass before completing" };
+  //   }
 
   return { allowed: true };
 }

@@ -114,5 +114,6 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_ticketId", ["ticketId"])
-    .index("by_idempotencyKey", ["idempotencyKey"]),
+    .index("by_projectId", ["projectId"])
+    .index("by_idempotencyKey", ["idempotencyKey"])
 });
