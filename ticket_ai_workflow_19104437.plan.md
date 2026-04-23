@@ -88,13 +88,13 @@ flowchart LR
 
 1. **Extend [`convex/schema.ts`](convex/schema.ts)** — ✅ Done:
    - Git fields on `projects`: `gitRemoteUrl`, `defaultBranch`, `btcaProjectId` — all optional strings — are live.
-   - **`artifactVersions`** table — full schema is already defined (not a stub): `ticketId`, `kind` (`"AC" | "PLAN" | "CODE"`), `version`, `content`, `status` (`"draft" | "approved" | "rejected"`), `userPrompt?`, `parentVersionId?`, `createdByJobId?`. Indexes: `by_ticketId`, `by_ticketId_and_kind`. *(The "finalize in Phase 2" step is pre-done.)*
+   - **`artifacts`** table — simplified schema: `ticketId`, `type` (`"AC" | "PLAN" | "CODE"`), `content`, `status` (`"draft" | "approved"`), `userPrompt?`, `createdByJobId?`. No `version`, no `parentArtifactId`. Exactly one row per `(ticketId, type)`. Indexes: `by_ticketId`, `by_ticketId_and_type`. *(The "finalize in Phase 2" step is pre-done.)*
    - **`asyncJobs`** table — full schema is already defined (not a stub): `ticketId`, `projectId`, `type` (includes `CREATE_PR`), `status`, `attempt`, `args`, `result?`, `error?`, `idempotencyKey`, `artifactVersionId?`, `startedAt?`, `finishedAt?`. Indexes: `by_status`, `by_ticketId`, `by_projectId`, `by_idempotencyKey`. *(The "finalize in Phase 3" step is pre-done.)*
-   - **No separate gate table** — gate state is derived on-the-fly by querying `artifactVersions` (and later `validationRuns`).
+   - **No separate gate table** — gate state is derived on-the-fly by querying `artifacts` (and later `validationRuns`).
 
 2. **[`convex/workflowEngine.ts`](convex/workflowEngine.ts)** — ✅ Done (real queries, not stubs):
-   - `TICKET_STATUSES`-driven `GATED_PHASES` map ties each phase to its required artifact kind.
-   - `canAdvance(ctx, ticketId, currentPhase, targetPhase)` — enforces forward-only single-step moves and queries `artifactVersions` with `by_ticketId_and_kind` + `.filter(status === "approved")`. *(The "real artifact queries" step from Phase 2 is pre-done.)*
+   - `GATED_PHASES` map (`TEST_CASE→AC`, `PLANNING→PLAN`, `CODE_GENERATION→CODE`) + `ARTIFACT_LABELS` for error messages.
+   - `canAdvance(ctx, ticketId, currentPhase, targetPhase)` — enforces forward-only single-step moves; queries `artifacts` with `by_ticketId_and_type` + `.unique()` (one artifact per type guaranteed). Produces distinct messages: "No X exists" vs "X is draft". *(The "real artifact queries" step from Phase 2 is pre-done.)*
    - `CODE_GENERATION → COMPLETED` validation-run check is stubbed with a `// TODO Phase 8` comment (correct).
    - `advancePhase({ ticketId, to })` — authenticates via `getAuthUserId`, authorizes via `assertProjectAccess`, calls `canAdvance`, patches ticket `status`.
    - `rewindPhase({ ticketId, to })` — authenticates + authorizes identically, validates the target is strictly backward (`targetIndex < currentIndex`), patches ticket `status`. **Does not delete downstream artifact versions** — re-entry into a phase with existing approved artifacts is intentionally allowed.
@@ -120,43 +120,47 @@ flowchart LR
 
 ---
 
-# Phase 2 — Artifact Versioning & Approval
+# Phase 2 — Artifact Versioning & Approval ✅ COMPLETE
 
 > **Goal**: Full CRUD for artifact versions, approval mutations, and gate integration so `advancePhase` actually unblocks when artifacts are approved.
 
+> [!NOTE]
+> **This phase is fully implemented.** The `artifacts` schema and `workflowEngine.ts` gate queries were pre-done in Phase 1. The only new deliverable this phase is `convex/artifacts.ts`.
+
 ### Scope
 
-1. **Finalize `artifactVersions` table schema** (from Phase 1 stub):
-   - Fields: `ticketId`, `kind` (`"AC" | "PLAN" | "CODE"`), `version` (integer, auto-incremented per ticket+kind), `content` (string — markdown body), `userPrompt` (optional string), `parentVersionId` (optional self-reference), `createdByJobId` (optional, for Phase 3+), `status` (`"draft" | "approved" | "rejected"`).
-   - Indexes: `by_ticketId_and_kind`, `by_ticketId`.
+1. **Finalize `artifacts` table schema** — ✅ Pre-done in Phase 1 (simplified further post-implementation):
+   - Fields: `ticketId`, `type` (`"AC" | "PLAN" | "CODE"`), `content`, `status` (`"draft" | "approved"`), `userPrompt?`, `createdByJobId?`.
+   - No `version` or `parentArtifactId` — one row per `(ticketId, type)`.
+   - Indexes: `by_ticketId_and_type`, `by_ticketId`.
 
-2. **New module [`convex/artifacts.ts`](convex/artifacts.ts)**:
-   - `createArtifactVersion({ ticketId, kind, content, userPrompt?, parentVersionId? })` — inserts a new version, auto-increments version number, sets `status: "draft"`.
-   - `approveArtifact({ versionId })` — patches `status: "approved"`. No separate gate table to update — `canAdvance` will pick this up automatically via its query.
-   - `rejectArtifact({ versionId, reason? })` — patches `status: "rejected"`.
-   - `listArtifactVersions({ ticketId, kind? })` — query, returns all versions ordered by version number desc.
-   - `getArtifactVersion({ versionId })` — single document fetch.
+2. **[`convex/artifacts.ts`](convex/artifacts.ts)** — ✅ Done:
+   - `upsertArtifact({ ticketId, type, content, userPrompt? })` — authenticates + `assertProjectAccess`, enforces phase-to-type constraint (`TEST_CASE→AC` etc.), upserts: patches existing row (resets to `"draft"`) or inserts new. Returns `Id<"artifacts">`.
+   - `approveArtifact({ artifactId })` — patches `status: "approved"`. `canAdvance` picks this up via `.unique()` — no gate table to sync.
+   - `unapproveArtifact({ artifactId })` — resets `status: "draft"`, re-locking the phase gate without discarding content.
+   - `getTicketArtifacts({ ticketId })` — non-throwing access check (returns `[]` on unauthorised); returns all artifacts for the ticket (max 3 rows). Uses `.collect()`.
+   - `getArtifact({ artifactId })` — non-throwing access check (returns `null`); single `ctx.db.get`.
 
-3. **Wire gates into `workflowEngine.ts`**:
-   - `canAdvance` now queries `artifactVersions` for approved versions (was stubbed in Phase 1). Since there's no gate table, this is just a query — no sync issues possible.
+3. **Wire gates into `workflowEngine.ts`** — ✅ Pre-done in Phase 1 (real queries, not stubs).
 
 ### Key files
 
-| Action | File |
-|--------|------|
-| MODIFY | [`convex/schema.ts`](convex/schema.ts) — finalize `artifactVersions` |
-| NEW    | [`convex/artifacts.ts`](convex/artifacts.ts) |
-| MODIFY | [`convex/workflowEngine.ts`](convex/workflowEngine.ts) — real artifact queries |
+| Action | File | Status |
+|--------|------|--------|
+| MODIFY | [`convex/schema.ts`](convex/schema.ts) — finalize `artifacts` | ✅ Pre-done (Phase 1) |
+| NEW    | [`convex/artifacts.ts`](convex/artifacts.ts) | ✅ Done |
+| MODIFY | [`convex/workflowEngine.ts`](convex/workflowEngine.ts) — real artifact queries | ✅ Pre-done (Phase 1) |
 
 ### How to test
 
 1. Create a ticket, advance to `TEST_CASE`.
-2. Call `createArtifactVersion({ ticketId, kind: "AC", content: "## Given..." })` → row created with `version: 1, status: "draft"`.
-3. Call `advancePhase({ to: "PLANNING" })` → **still fails** (draft, not approved).
-4. Call `approveArtifact({ versionId })` → version status is now `"approved"`.
-5. Call `advancePhase({ to: "PLANNING" })` → **succeeds**.
-6. Create a second AC version → `version: 2`. Approve it. `canAdvance` still passes (it finds an approved AC).
-7. Call `rejectArtifact` on v2 → status changes to `"rejected"`. `canAdvance` still passes because v1 is still approved.
+2. Call `upsertArtifact({ ticketId, type: "AC", content: "## Given..." })` → row created with `status: "draft"`.
+3. Call `upsertArtifact` again with different content → same row overwritten, status still `"draft"`.
+4. Call `advancePhase({ to: "PLANNING" })` → **still fails** (`"Acceptance Criteria is draft"`).
+5. Call `approveArtifact({ artifactId })` → status is `"approved"`.
+6. Call `advancePhase({ to: "PLANNING" })` → **succeeds**.
+7. Call `unapproveArtifact({ artifactId })` → status resets to `"draft"`, gate locks again.
+8. Call `advancePhase({ to: "PLANNING" })` → **fails** again.
 
 ---
 
@@ -166,14 +170,14 @@ flowchart LR
 
 ### Scope
 
-1. **Finalize `asyncJobs` table schema** (from Phase 1 stub):
-   - Fields: `ticketId`, `projectId`, `type` (`"GENERATE_AC" | "GENERATE_PLAN" | "GENERATE_CODE" | "VALIDATE" | "FIX_AFTER_FAILURE"`), `status` (`"queued" | "running" | "succeeded" | "failed" | "cancelled"`), `attempt` (number), `args` (object — flexible per job type), `result` (optional object), `error` (optional string), `artifactVersionId` (optional — output), `idempotencyKey` (string), `startedAt` / `finishedAt` (optional numbers).
-   - Indexes: `by_status`, `by_ticketId`, `by_idempotencyKey`.
+1. **Finalize `asyncJobs` table schema** (from Phase 1 stub — already in schema):
+   - Fields: `ticketId`, `projectId`, `type` (`"GENERATE_AC" | "GENERATE_PLAN" | "GENERATE_CODE" | "VALIDATE" | "FIX_AFTER_FAILURE" | "CREATE_PR"`), `status` (`"queued" | "running" | "succeeded" | "failed" | "cancelled"`), `attempt` (number), `args` (object — flexible per job type), `result` (optional object), `error` (optional string), `artifactVersionId` (optional — links to the artifact row created/updated by this job), `idempotencyKey` (string), `startedAt` / `finishedAt` (optional numbers).
+   - Indexes: `by_status`, `by_ticketId`, `by_projectId`, `by_idempotencyKey`.
 
 2. **New module [`convex/jobs.ts`](convex/jobs.ts)**:
    - Public mutation `enqueueJob({ ticketId, type, args, idempotencyKey? })` — inserts job with `status: "queued"`, validates no duplicate via idempotency key.
    - **Internal** mutation `claimNextJob({ type? })` — transaction: finds oldest `queued` job (optionally filtered by type), patches to `running`, returns full payload. Only callable internally.
-   - **Internal** mutation `completeJob({ jobId, status, result?, error?, artifactVersionId? })` — patches job, handles side effects (create artifact version if result contains content, update gates).
+   - **Internal** mutation `completeJob({ jobId, status, result?, error?, artifactId? })` — patches job, handles side effects (call `upsertArtifact` if result contains content, linking `createdByJobId`).
    - Public query `listJobs({ ticketId })` — for UI progress display.
    - Public mutation `cancelJob({ jobId })` — sets `cancelled` if still `queued` or `running`.
 
@@ -219,13 +223,12 @@ flowchart LR
    - **"Rewind" button**: calls `rewindPhase` (with confirmation dialog).
 
 2. **Artifact panel** (main content area when a phase is selected):
-   - Renders the latest artifact version as **markdown**.
-   - **Version dropdown**: switch between versions; show diff (text diff, unified or side-by-side) between any two selected versions.
+   - Renders the artifact content as **markdown** (one artifact per phase).
    - **Actions**:
      - "Approve" → calls `approveArtifact`.
-     - "Reject" → calls `rejectArtifact` (with optional reason modal).
-     - "Regenerate" → opens modal with prompt textarea, calls `requestRegeneration`.
-   - Shows `status` badge on each version (draft / approved / rejected).
+     - "Unapprove" → calls `unapproveArtifact` (resets to draft, re-locks gate).
+     - "Regenerate" → opens modal with prompt textarea, calls `requestRegeneration` (overwrites artifact content via `upsertArtifact`, resets to draft).
+   - Shows `status` badge (`draft` / `approved`).
 
 3. **Job status panel** (sidebar or bottom bar):
    - `useQuery` on `listJobs({ ticketId })` — live-updating job list.
@@ -248,12 +251,11 @@ flowchart LR
 ### How to test
 
 1. Navigate to a ticket detail page → phase rail shows all phases, current phase highlighted.
-2. Manually create an artifact version (via dashboard or a temporary dev button) → it appears in the artifact panel as markdown.
+2. Manually call `upsertArtifact` (via dashboard) → artifact appears in the panel as markdown.
 3. Click "Approve" → badge changes to ✅, advance button becomes enabled.
 4. Click "Advance" → phase moves forward, rail updates.
-5. Click "Regenerate" → modal appears, submit enqueues a job, job status panel shows "queued".
-6. Version dropdown shows all versions; switching versions re-renders content.
-7. Click "Rewind" → confirmation dialog → phase moves back, downstream gates cleared.
+5. Click "Regenerate" → modal appears, submit calls `upsertArtifact` (overwrites content), job status panel shows "queued".
+6. Click "Rewind" → confirmation dialog → phase moves back.
 
 ---
 
@@ -318,13 +320,13 @@ flowchart LR
    - Parse output → call `/worker/complete` with content.
 
 3. **`completeJob` side effect for `GENERATE_AC`**:
-   - Auto-create an `artifactVersion` with `kind: "AC"`, content from result, link `createdByJobId`.
-   - No gate table to update — the new draft version is automatically visible to `canAdvance` queries.
+   - Calls `upsertArtifact({ ticketId, type: "AC", content, createdByJobId })` — overwrites any existing draft, resets to `"draft"` status.
+   - No gate table to update — `canAdvance` queries the single artifact row via `.unique()`.
 
 4. **Regenerate flow**:
    - User clicks "Regenerate" in UI → `requestRegeneration` enqueues new `GENERATE_AC` job with `userPrompt`.
    - Worker uses `userPrompt` as refinement context.
-   - New artifact version created with `parentVersionId` pointing to previous version.
+   - `completeJob` calls `upsertArtifact` — overwrites the existing artifact content in place, resets status to `"draft"`.
 
 ### Key files
 
@@ -339,12 +341,10 @@ flowchart LR
 
 1. Advance a ticket to `TEST_CASE` → job auto-enqueued (visible in UI job panel as "queued").
 2. Worker claims and processes → job becomes "running" in UI.
-3. Worker completes → artifact version appears in artifact panel with generated AC markdown.
-4. Version shows `status: "draft"` badge.
-5. Click "Approve" → gate unlocks, "Advance to Planning" button enables.
-6. Click "Regenerate" with prompt "Add edge cases for empty input" → new job enqueued → new version appears with `version: 2`.
-7. Version dropdown shows both versions; diff view works between v1 and v2.
-8. Advance to PLANNING → succeeds.
+3. Worker completes → artifact panel shows generated AC markdown with `status: "draft"` badge.
+4. Click "Approve" → gate unlocks, "Advance to Planning" button enables.
+5. Click "Regenerate" with prompt "Add edge cases for empty input" → new job enqueued → artifact content replaced with new version, status reset to `"draft"`.
+6. Advance to PLANNING → succeeds.
 
 ---
 
@@ -358,20 +358,20 @@ flowchart LR
 
 1. **Auto-enqueue `GENERATE_PLAN`** when entering `PLANNING`.
 2. **Worker handler `worker/src/handlers/generatePlan.ts`**:
-   - **Prompt pack**: ticket fields, **approved AC text** (fetched by version id from job args), user "extra context", and BTCA-grounded snippets (same bounded pattern as AC).
+   - **Prompt pack**: ticket fields, **approved AC content** (fetched via `getArtifact({ ticketId, type: "AC" })`), user "extra context", and BTCA-grounded snippets (same bounded pattern as AC).
    - Run `forge --agent muse -p "..."`.
-   - Capture muse output / `plans/` file, store as `artifactVersions` with `kind: "PLAN"`.
+   - Capture muse output / `plans/` file, call `upsertArtifact` with `type: "PLAN"`.
 3. **Approval gate** mirrors AC — approve plan before advancing to `CODE_GENERATION`.
 
 #### 7B: Code generation phase (`:forge`)
 
-1. **Auto-enqueue `GENERATE_CODE`** with **approved plan version id** when entering `CODE_GENERATION`.
+1. **Auto-enqueue `GENERATE_CODE`** when entering `CODE_GENERATION` (approved plan content passed in job args).
 2. **Worker handler `worker/src/handlers/generateCode.ts`**:
    - Clone or update shallow git checkout (project's `gitRemoteUrl`, `defaultBranch`).
-   - Checkout disposable branch `synapse/ticket-<id>-v<n>`.
+   - Checkout disposable branch `synapse/ticket-<id>`.
    - Run `forge --agent forge -p "Implement the following plan: ..."` with plan text inlined.
    - System/developer instructions require: only changes consistent with the plan; list files touched; if plan is ambiguous, stop and note assumptions.
-   - Store resulting **commit SHA + summary** in `artifactVersions` (`kind: "CODE"`). Prefer git refs + small metadata in Convex over large blobs.
+   - Call `upsertArtifact` with `type: "CODE"`, storing commit SHA + summary. Prefer git refs + small metadata in Convex over large blobs.
 
 #### 7C: Validation layer
 
