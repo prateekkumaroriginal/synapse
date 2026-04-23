@@ -10,6 +10,15 @@ export const TICKET_STATUSES = [
   "COMPLETED",
 ] as const;
 
+export const ARTIFACT_TYPES = [
+  "AC",
+  "PLAN",
+  "CODE",
+] as const;
+
+export type TicketStatus = (typeof TICKET_STATUSES)[number];
+export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
+
 export const ticketStatus = v.union(
   ...TICKET_STATUSES.map((s) => v.literal(s))
 );
@@ -17,6 +26,10 @@ export const ticketStatus = v.union(
 export const ticketType = v.union(
   v.literal("TASK"),
   v.literal("BUG"),
+);
+
+export const artifactType = v.union(
+  ...ARTIFACT_TYPES.map((s) => v.literal(s))
 );
 
 const { users, ...otherAuthTables } = authTables;
@@ -67,22 +80,19 @@ export default defineSchema({
   }).index("by_project", ["projectId"]),
 
   // Phase 1 stub — mutations added in Phase 2
-  artifactVersions: defineTable({
+  artifacts: defineTable({
     ticketId: v.id("tickets"),
-    kind: v.union(v.literal("AC"), v.literal("PLAN"), v.literal("CODE")),
-    version: v.number(),
+    type: artifactType,
     content: v.string(),
     status: v.union(
       v.literal("draft"),
       v.literal("approved"),
-      v.literal("rejected"),
     ),
     userPrompt: v.optional(v.string()),
-    parentVersionId: v.optional(v.id("artifactVersions")),
     createdByJobId: v.optional(v.id("asyncJobs")),
   })
     .index("by_ticketId", ["ticketId"])
-    .index("by_ticketId_and_kind", ["ticketId", "kind"]),
+    .index("by_ticketId_and_type", ["ticketId", "type"]),
 
   // Phase 1 stub — mutations added in Phase 3
   asyncJobs: defineTable({
@@ -108,7 +118,7 @@ export default defineSchema({
     result: v.optional(v.any()),
     error: v.optional(v.string()),
     idempotencyKey: v.string(),
-    artifactVersionId: v.optional(v.id("artifactVersions")),
+    artifactVersionId: v.optional(v.id("artifacts")),
     startedAt: v.optional(v.number()),
     finishedAt: v.optional(v.number()),
   })

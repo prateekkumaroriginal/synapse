@@ -5,16 +5,21 @@ import type { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { assertProjectAccess } from "./utils/projectAccess";
 import { TICKET_STATUSES } from "./schema";
+import type { TicketStatus, ArtifactType } from "./schema";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type TicketPhase = (typeof TICKET_STATUSES)[number];
+const ARTIFACT_LABELS: Record<ArtifactType, string> = {
+  AC: "Acceptance Criteria",
+  PLAN: "Implementation Plan",
+  CODE: "Code",
+};
 
 // Ordered list of phases that produce an artifact requiring approval before
 // the ticket can advance to the next phase.
-const GATED_PHASES: Partial<Record<TicketPhase, { kind: "AC" | "PLAN" | "CODE" }>> = {
+const GATED_PHASES: Partial<Record<TicketStatus, { kind: ArtifactType }>> = {
   TEST_CASE: { kind: "AC" },
   PLANNING: { kind: "PLAN" },
   CODE_GENERATION: { kind: "CODE" },
@@ -26,14 +31,14 @@ const GATED_PHASES: Partial<Record<TicketPhase, { kind: "AC" | "PLAN" | "CODE" }
 
 /**
  * Derives whether a ticket can move to `targetPhase` purely by querying
- * `artifactVersions` (and later `validationRuns`). No separate gate table is
+ * `artifacts` (and later `validationRuns`). No separate gate table is
  * maintained — this is the single source of truth check.
  */
 async function canAdvance(
   ctx: MutationCtx,
   ticketId: Id<"tickets">,
-  currentPhase: TicketPhase,
-  targetPhase: TicketPhase,
+  currentPhase: TicketStatus,
+  targetPhase: TicketStatus,
 ): Promise<{ allowed: boolean; reason?: string }> {
   const currentIndex = TICKET_STATUSES.indexOf(currentPhase);
   const targetIndex = TICKET_STATUSES.indexOf(targetPhase);
@@ -49,23 +54,25 @@ async function canAdvance(
   // Check the gate on the CURRENT phase (the phase we're leaving)
   const gate = GATED_PHASES[currentPhase];
   if (gate) {
-    const approvedArtifact = await ctx.db
-      .query("artifactVersions")
-      .withIndex("by_ticketId_and_kind", (q) =>
-        q.eq("ticketId", ticketId).eq("kind", gate.kind),
+    // Single artifact per (ticketId, type) — .unique() is sufficient.
+    const artifact = await ctx.db
+      .query("artifacts")
+      .withIndex("by_ticketId_and_type", (q) =>
+        q.eq("ticketId", ticketId).eq("type", gate.kind),
       )
-      .filter((q) => q.eq(q.field("status"), "approved"))
-      .first();
+      .unique();
 
-    if (approvedArtifact === null) {
-      const labels: Record<string, string> = {
-        AC: "acceptance criteria",
-        PLAN: "implementation plan",
-        CODE: "code",
-      };
+    if (artifact === null) {
       return {
         allowed: false,
-        reason: `Cannot advance: ${labels[gate.kind] ?? gate.kind} must be approved first`,
+        reason: `No ${ARTIFACT_LABELS[gate.kind]} exists. Generate and approve ${ARTIFACT_LABELS[gate.kind]} first.`,
+      };
+    }
+
+    if (artifact.status !== "approved") {
+      return {
+        allowed: false,
+        reason: `${ARTIFACT_LABELS[gate.kind]} is ${artifact.status}. It must be approved before advancing.`,
       };
     }
   }

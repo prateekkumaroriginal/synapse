@@ -1,6 +1,4 @@
-import { TICKET_STATUSES } from "./schema";
-
-export type TicketStatus = (typeof TICKET_STATUSES)[number];
+import { TICKET_STATUSES, TicketStatus } from "./schema";
 
 export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
   BACKLOG: "Backlog",
