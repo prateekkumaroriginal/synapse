@@ -29,6 +29,20 @@ export const listForProject = query({
   },
 });
 
+export const get = query({
+  args: { ticketId: v.id("tickets") },
+  handler: async (ctx, { ticketId }): Promise<Doc<"tickets"> | null> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const ticket = await ctx.db.get("tickets", ticketId);
+    if (!ticket) return null;
+
+    const hasAccess = await hasProjectAccess(ctx, ticket.projectId, userId);
+    return hasAccess ? ticket : null;
+  },
+});
+
 export const create = mutation({
   args: {
     projectId: v.id("projects"),

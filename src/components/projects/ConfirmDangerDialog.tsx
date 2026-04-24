@@ -69,7 +69,7 @@ export function ConfirmDangerDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(onConfirm)} className="py-4">
+        <form onSubmit={form.handleSubmit(onConfirm)} className="py-4 flex flex-col gap-4">
           <Input
             autoFocus
             {...form.register("confirmText")}
@@ -77,7 +77,7 @@ export function ConfirmDangerDialog({
             disabled={isPending}
           />
 
-          <DialogFooter className="mt-4">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"

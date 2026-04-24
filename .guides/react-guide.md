@@ -20,7 +20,7 @@ SomeComponent.Skeleton = function SomeComponentSkeleton() {
 
 - When using shadcn's `Tooltip`, there's no need to wrap it inside `TooltipProvider` until you want to override the delay duration.
 - Use shadcn's `empty.tsx` component to show a empty state anywhere.
-- Never use the html `title` attribute.
+- Never use the html `title` attribute. If needed, use shadcn's `Tooltip` component.
 - When using `cn`, follow this linting format:
 ```tsx
 <div className={cn(

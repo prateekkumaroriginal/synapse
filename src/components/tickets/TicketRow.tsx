@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import {
@@ -37,9 +38,11 @@ export function TicketRow({
   }).format(ticket._creationTime);
 
   return (
-    <div className="group col-span-full grid grid-cols-subgrid items-center border-b border-border bg-background px-4 py-3 transition-colors hover:bg-muted/40 last:border-b-0">
-      <div className="flex min-w-0 flex-col gap-0.5 pr-4">
-        <p className="font-medium text-primary line-clamp-1">{ticket.title}</p>
+    <Link to={`/projects/${ticket.projectId}/tickets/${ticket._id}`} className="group col-span-full grid grid-cols-subgrid items-center border-b border-border bg-background px-4 py-3 transition-colors hover:bg-primary/5 last:border-b-0">
+      <div className="flex min-w-0 flex-col gap-1 pr-4">
+        <span className="font-medium text-primary line-clamp-1 group-hover:underline group-hover:text-primary/80 transition-colors">
+          {ticket.title}
+        </span>
         {ticket.description ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -73,7 +76,10 @@ export function TicketRow({
                   size="icon-sm"
                   disabled={busy}
                   aria-label="Move ticket back one stage"
-                  onClick={() => onMovePrev(ticket._id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onMovePrev(ticket._id);
+                  }}
                 >
                   <ChevronLeft className="size-4" />
                 </Button>
@@ -103,7 +109,10 @@ export function TicketRow({
                   size="icon-sm"
                   disabled={busy}
                   aria-label="Move ticket forward one stage"
-                  onClick={() => onMoveNext(ticket._id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onMoveNext(ticket._id);
+                  }}
                 >
                   <ChevronRight className="size-4" />
                 </Button>
@@ -125,7 +134,7 @@ export function TicketRow({
           )}
         </TooltipProvider>
       </div>
-    </div>
+    </Link>
   );
 }
 

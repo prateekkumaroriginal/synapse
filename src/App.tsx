@@ -8,6 +8,7 @@ import ArchivedProjectsPage from "@/pages/ArchivedProjectsPage";
 import ProjectsPage from "@/pages/ProjectsPage";
 import SignInPage from "@/pages/SignInPage";
 import SignUpPage from "@/pages/SignUpPage";
+import { TicketDetailPage } from "@/pages/TicketDetailPage";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/projects/archived" element={<ArchivedProjectsPage />} />
         <Route path="/projects/:projectId" element={<ProjectWorkspacePage />} />
         <Route path="/projects/:projectId/settings" element={<ProjectSettingsPage />} />
+        <Route path="/projects/:projectId/tickets/:ticketId" element={<TicketDetailPage />} />
       </Route>
     </Routes>
   );

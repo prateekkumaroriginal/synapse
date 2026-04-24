@@ -14,8 +14,8 @@ export function AuthPageShell({
   footerLink: { to: string; label: string; prompt: string };
 }) {
   return (
-    <div className="flex min-h-svh flex-col bg-background px-4 py-10 text-foreground">
-      <div className="mx-auto mb-8 flex w-full max-w-md items-center justify-between gap-4">
+    <div className="flex min-h-svh flex-col bg-background px-4 py-10 text-foreground gap-8">
+      <div className="mx-auto flex w-full max-w-md items-center justify-between gap-4">
         <Link
           to="/"
           className="text-lg font-semibold tracking-tight text-foreground hover:text-primary"
@@ -24,13 +24,13 @@ export function AuthPageShell({
         </Link>
         <ThemeToggle />
       </div>
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center">
-        <div className="mb-8 w-full text-center">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center gap-8">
+        <div className="w-full text-center flex flex-col gap-1 items-center">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         <div className="w-full">{children}</div>
-        <div className="mt-8 flex w-full flex-row flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-sm text-muted-foreground">
+        <div className="flex w-full flex-row flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-sm text-muted-foreground">
           <span>{footerLink.prompt}</span>
           <Link
             to={footerLink.to}

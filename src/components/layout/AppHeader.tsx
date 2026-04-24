@@ -11,6 +11,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -32,16 +33,24 @@ export function AppHeader() {
 
   const isNewProject = location.pathname === "/projects/new";
   const isArchivedProjects = location.pathname === "/projects/archived";
-  const isProjectWorkspace = location.pathname.startsWith("/projects/") && !isNewProject && !isArchivedProjects;
   const isSettingsPage = location.pathname.endsWith("/settings");
+  const isTicketPage = location.pathname.includes("/tickets/");
+  const isProjectWorkspace = location.pathname.startsWith("/projects/") && !isNewProject && !isArchivedProjects;
 
   const segments = location.pathname.split("/");
   const rawProjectId = isProjectWorkspace ? segments[2] : null;
   const projectId = rawProjectId ? (rawProjectId as Id<"projects">) : null;
+  const rawTicketId = isTicketPage ? segments[4] : null;
+  const ticketId = rawTicketId ? (rawTicketId as Id<"tickets">) : null;
 
   const project = useQuery(
     api.projects.getProject,
     projectId ? { projectId } : "skip"
+  );
+
+  const ticket = useQuery(
+    api.tickets.get,
+    ticketId ? { ticketId } : "skip"
   );
 
   const email = viewer?.email ?? null;
@@ -84,7 +93,7 @@ export function AppHeader() {
                 <>
                   <BreadcrumbSeparator />
                   <BreadcrumbItem>
-                    {isSettingsPage ? (
+                    {isSettingsPage || isTicketPage ? (
                       <BreadcrumbLink asChild>
                         <Link to={`/projects/${projectId}`}>{project ? project.name : "..."}</Link>
                       </BreadcrumbLink>
@@ -99,6 +108,21 @@ export function AppHeader() {
                         <BreadcrumbPage className="inline-flex items-center gap-1.5">
                           <Settings className="size-4" />
                           Settings
+                        </BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </>
+                  )}
+                  {isTicketPage && (
+                    <>
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage className="flex items-center gap-2">
+                          <span className="font-semibold text-foreground tracking-tight">{ticket?.title ?? "..."}</span>
+                          {ticket && (
+                            <Badge variant={ticket.type === "BUG" ? "destructive" : "secondary"} className="h-5 px-1.5 text-[10px] uppercase">
+                              {ticket.type === "BUG" ? "Bug" : "Task"}
+                            </Badge>
+                          )}
                         </BreadcrumbPage>
                       </BreadcrumbItem>
                     </>
