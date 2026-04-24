@@ -89,7 +89,7 @@ flowchart LR
 1. **Extend [`convex/schema.ts`](convex/schema.ts)** — ✅ Done:
    - Git fields on `projects`: `gitRemoteUrl`, `defaultBranch`, `btcaProjectId` — all optional strings — are live.
    - **`artifacts`** table — simplified schema: `ticketId`, `type` (`"AC" | "PLAN" | "CODE"`), `content`, `status` (`"draft" | "approved"`), `userPrompt?`, `createdByJobId?`. No `version`, no `parentArtifactId`. Exactly one row per `(ticketId, type)`. Indexes: `by_ticketId`, `by_ticketId_and_type`. *(The "finalize in Phase 2" step is pre-done.)*
-   - **`asyncJobs`** table — full schema is already defined (not a stub): `ticketId`, `projectId`, `type` (includes `CREATE_PR`), `status`, `attempt`, `args`, `result?`, `error?`, `idempotencyKey`, `artifactVersionId?`, `startedAt?`, `finishedAt?`. Indexes: `by_status`, `by_ticketId`, `by_projectId`, `by_idempotencyKey`. *(The "finalize in Phase 3" step is pre-done.)*
+   - **`asyncJobs`** table — full schema is already defined (not a stub): `ticketId`, `projectId`, `type` (includes `CREATE_PR`), `status`, `attempt`, `args`, `result?`, `error?`, `idempotencyKey`, `artifactId?`, `startedAt?`, `finishedAt?`. Indexes: `by_status`, `by_ticketId`, `by_projectId`, `by_idempotencyKey`. *(The "finalize in Phase 3" step is pre-done.)*
    - **No separate gate table** — gate state is derived on-the-fly by querying `artifacts` (and later `validationRuns`).
 
 2. **[`convex/workflowEngine.ts`](convex/workflowEngine.ts)** — ✅ Done (real queries, not stubs):
@@ -171,18 +171,19 @@ flowchart LR
 ### Scope
 
 1. **Finalize `asyncJobs` table schema** (from Phase 1 stub — already in schema):
-   - Fields: `ticketId`, `projectId`, `type` (`"GENERATE_AC" | "GENERATE_PLAN" | "GENERATE_CODE" | "VALIDATE" | "FIX_AFTER_FAILURE" | "CREATE_PR"`), `status` (`"queued" | "running" | "succeeded" | "failed" | "cancelled"`), `attempt` (number), `args` (object — flexible per job type), `result` (optional object), `error` (optional string), `artifactVersionId` (optional — links to the artifact row created/updated by this job), `idempotencyKey` (string), `startedAt` / `finishedAt` (optional numbers).
+   - Fields: `ticketId`, `projectId`, `type` (`"GENERATE_AC" | "GENERATE_PLAN" | "GENERATE_CODE" | "VALIDATE" | "FIX_AFTER_FAILURE" | "CREATE_PR"`), `status` (`"queued" | "running" | "succeeded" | "failed" | "cancelled"`), `attempt` (number), `args` (object — flexible per job type), `result` (optional object), `error` (optional string), `artifactId` (optional — links to the artifact row created/updated by this job), `idempotencyKey` (string), `startedAt` / `finishedAt` (optional numbers).
+   - *Note: Extracted `jobType` unified array validation to schema to share dynamically across files.*
    - Indexes: `by_status`, `by_ticketId`, `by_projectId`, `by_idempotencyKey`.
 
 2. **New module [`convex/jobs.ts`](convex/jobs.ts)**:
    - Public mutation `enqueueJob({ ticketId, type, args, idempotencyKey? })` — inserts job with `status: "queued"`, validates no duplicate via idempotency key.
    - **Internal** mutation `claimNextJob({ type? })` — transaction: finds oldest `queued` job (optionally filtered by type), patches to `running`, returns full payload. Only callable internally.
-   - **Internal** mutation `completeJob({ jobId, status, result?, error?, artifactId? })` — patches job, handles side effects (call `upsertArtifact` if result contains content, linking `createdByJobId`).
+   - **Internal** mutation `completeJob({ jobId, status, result?, error? })` — **(Guard Clause: instantly rejects redundant hits if job status is not strictly `"running"`)** patches job, handles side effects (dynamically resolving `jobType` to `artifactType` mapping, automatically patching `artifacts` table if result contains content, linking `createdByJobId` and `artifactId`).
    - Public query `listJobs({ ticketId })` — for UI progress display.
    - Public mutation `cancelJob({ jobId })` — sets `cancelled` if still `queued` or `running`.
 
 3. **Mutation `requestRegeneration` in [`convex/workflowEngine.ts`](convex/workflowEngine.ts)**:
-   - `requestRegeneration({ ticketId, phase, userPrompt })` — validates phase is current, no running job for this phase, then calls `enqueueJob`.
+   - `requestRegeneration({ ticketId, phase, userPrompt })` — validates phase matches ticket status, verifies no running job prevents this flow in queue, dynamically patches userPrompt args and safely inserts a `status: "queued"` row independently (avoids mutation recursion block).
 
 4. **Secured HTTP routes in [`convex/http.ts`](convex/http.ts)**:
    - `POST /worker/claim` → calls `claimNextJob` (validates HMAC or shared secret from `Authorization` header).
