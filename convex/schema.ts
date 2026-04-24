@@ -16,8 +16,18 @@ export const ARTIFACT_TYPES = [
   "CODE",
 ] as const;
 
+export const JOB_TYPES = [
+  "GENERATE_AC",
+  "GENERATE_PLAN",
+  "GENERATE_CODE",
+  "VALIDATE",
+  "FIX_AFTER_FAILURE",
+  "CREATE_PR",
+] as const;
+
 export type TicketStatus = (typeof TICKET_STATUSES)[number];
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
+export type JobType = (typeof JOB_TYPES)[number];
 
 export const ticketStatus = v.union(
   ...TICKET_STATUSES.map((s) => v.literal(s))
@@ -30,6 +40,10 @@ export const ticketType = v.union(
 
 export const artifactType = v.union(
   ...ARTIFACT_TYPES.map((s) => v.literal(s))
+);
+
+export const jobType = v.union(
+  ...JOB_TYPES.map((s) => v.literal(s))
 );
 
 const { users, ...otherAuthTables } = authTables;
@@ -98,14 +112,7 @@ export default defineSchema({
   asyncJobs: defineTable({
     ticketId: v.id("tickets"),
     projectId: v.id("projects"),
-    type: v.union(
-      v.literal("GENERATE_AC"),
-      v.literal("GENERATE_PLAN"),
-      v.literal("GENERATE_CODE"),
-      v.literal("VALIDATE"),
-      v.literal("FIX_AFTER_FAILURE"),
-      v.literal("CREATE_PR"),
-    ),
+    type: jobType,
     status: v.union(
       v.literal("queued"),
       v.literal("running"),
@@ -118,7 +125,7 @@ export default defineSchema({
     result: v.optional(v.any()),
     error: v.optional(v.string()),
     idempotencyKey: v.string(),
-    artifactVersionId: v.optional(v.id("artifacts")),
+    artifactId: v.optional(v.id("artifacts")),
     startedAt: v.optional(v.number()),
     finishedAt: v.optional(v.number()),
   })

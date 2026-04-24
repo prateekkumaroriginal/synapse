@@ -11,6 +11,7 @@
 import type * as artifacts from "../artifacts.js";
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
+import type * as jobs from "../jobs.js";
 import type * as projectMembers from "../projectMembers.js";
 import type * as projectResources from "../projectResources.js";
 import type * as projects from "../projects.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   artifacts: typeof artifacts;
   auth: typeof auth;
   http: typeof http;
+  jobs: typeof jobs;
   projectMembers: typeof projectMembers;
   projectResources: typeof projectResources;
   projects: typeof projects;

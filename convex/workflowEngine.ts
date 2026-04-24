@@ -5,7 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { assertProjectAccess } from "./utils/projectAccess";
 import { TICKET_STATUSES } from "./schema";
-import type { TicketStatus, ArtifactType } from "./schema";
+import type { TicketStatus, ArtifactType, JobType } from "./schema";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -23,6 +23,12 @@ const GATED_PHASES: Partial<Record<TicketStatus, { kind: ArtifactType }>> = {
   TEST_CASE: { kind: "AC" },
   PLANNING: { kind: "PLAN" },
   CODE_GENERATION: { kind: "CODE" },
+};
+
+const PHASE_TO_JOB_TYPE: Partial<Record<TicketStatus, JobType>> = {
+  TEST_CASE: "GENERATE_AC",
+  PLANNING: "GENERATE_PLAN",
+  CODE_GENERATION: "GENERATE_CODE",
 };
 
 // ---------------------------------------------------------------------------
@@ -151,5 +157,60 @@ export const rewindPhase = mutation({
     }
 
     await ctx.db.patch("tickets", ticketId, { status: to });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// requestRegeneration mutation
+// ---------------------------------------------------------------------------
+
+export const requestRegeneration = mutation({
+  args: {
+    ticketId: v.id("tickets"),
+    phase: v.union(...TICKET_STATUSES.map((s) => v.literal(s))),
+    userPrompt: v.string(),
+  },
+  handler: async (ctx, { ticketId, phase, userPrompt }): Promise<Id<"asyncJobs">> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not authenticated");
+
+    const ticket = await ctx.db.get("tickets", ticketId);
+    if (ticket === null) throw new Error("Ticket not found");
+
+    await assertProjectAccess(ctx, ticket.projectId, userId);
+
+    if (ticket.status !== phase) {
+      throw new Error(`Ticket is currently in ${ticket.status}, cannot regenerate for ${phase}`);
+    }
+
+    const jobType = PHASE_TO_JOB_TYPE[phase] ?? null;
+
+    if (jobType === null) {
+      throw new Error(`Phase ${phase} does not support regeneration`);
+    }
+
+    // Check for existing running or queued job for this ticket of this type
+    const existingJobs = await ctx.db
+      .query("asyncJobs")
+      .withIndex("by_ticketId", (q) => q.eq("ticketId", ticketId))
+      .collect();
+
+    const activeJob = existingJobs.find(
+      (job) => job.type === jobType && (job.status === "queued" || job.status === "running")
+    );
+
+    if (activeJob) {
+      throw new Error(`A ${jobType} job is already ${activeJob.status}`);
+    }
+
+    return await ctx.db.insert("asyncJobs", {
+      ticketId,
+      projectId: ticket.projectId,
+      type: jobType,
+      status: "queued",
+      attempt: 0,
+      args: { userPrompt },
+      idempotencyKey: crypto.randomUUID(),
+    });
   },
 });

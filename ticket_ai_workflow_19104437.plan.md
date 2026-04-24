@@ -198,16 +198,34 @@ flowchart LR
 | MODIFY | [`convex/workflowEngine.ts`](convex/workflowEngine.ts) — `requestRegeneration` |
 | MODIFY | [`convex/http.ts`](convex/http.ts) — worker callback routes |
 
-### How to test
+### Edge & Happy Path Test Cases
 
-1. Call `enqueueJob({ ticketId, type: "GENERATE_AC", args: {} })` → job row with `status: "queued"`.
-2. Call `enqueueJob` again with same `idempotencyKey` → rejected (no duplicate).
-3. In Convex dashboard, run `claimNextJob` internally → returns the job, status now `running`.
-4. Run `completeJob({ jobId, status: "succeeded", result: { content: "..." } })` → job marked `succeeded`.
-5. `curl -X POST <CONVEX_URL>/worker/claim -H "Authorization: Bearer <WORKER_SECRET>"` → returns job payload (or empty if none queued).
-6. `curl` the `/worker/complete` endpoint with a mock result → job completes.
-7. Test with wrong/missing secret → **401 Unauthorized**.
-8. Call `cancelJob` on a queued job → status becomes `cancelled`.
+**1. `enqueueJob` (Public Mutation)**
+- **Happy Path:** Enqueue a job successfully → Job row created with `status: "queued"`, `attempt` 0.
+- **Idempotency Edge Case:** Call `enqueueJob` again with same `idempotencyKey` → Rejected, no duplicate row created; returns existing job ID.
+- **Authorization Edge Case:** Call `enqueueJob` without project access → Throws unauthorized error.
+
+**2. `claimNextJob` & `/worker/claim` (HTTP Endpoint)**
+- **Happy Path:** `POST /worker/claim` → Worker claims oldest "queued" job. Job `status` becomes "running", `attempt` increments, `startedAt` sets.
+- **Empty Queue Edge Case:** `POST /worker/claim` when no jobs exist → Immediately returns `204 No Content` (doesn't hang).
+- **Concurrency Edge Case:** Two workers call `POST /worker/claim` simultaneously → Convex transaction handles atomic dispatch; no duplicate claims.
+- **Data Structuring Edge Case:** Call `/worker/claim` with invalid custom args JSON string format → Endpoint returns `400 Bad Request`.
+- **Authorization Edge Case:** Call `/worker/claim` with a missing or incorrect `WORKER_SECRET` header → Returns `401 Unauthorized`.
+
+**3. `completeJob` & `/worker/complete` (HTTP Endpoint)**
+- **Happy Path (with Content):** `POST /worker/complete` with `status: "succeeded"` + artifact `content`. Job finishes AND `artifacts` table properly updates/inserts `status: "draft"` linking `createdByJobId`.
+- **Happy Path (no Content):** `POST /worker/complete` without content (i.e. validation). Job completes but no `artifacts` side-effect executes.
+- **Failure Edge Case:** `POST /worker/complete` with `status: "failed"` and an `error` body. Job finishes saving the error state.
+- **Missing Payload Edge Case:** Missing `jobId` or `status` arg → Endpoint returns `400 Bad Request`.
+
+**4. `cancelJob` (Public Mutation)**
+- **Happy Path:** Cancel a "queued" or "running" job → status changes instantly to `"cancelled"`.
+- **State Violation Edge Case:** Cancel a job already "succeeded", "failed", or "cancelled" → Throws an error preventing operation.
+
+**5. `requestRegeneration` (Public Mutation at `workflowEngine`)**
+- **Happy Path:** Target ticket is correctly in the Phase `TEST_CASE`. Executes successfully queueing a `GENERATE_AC` job.
+- **State Violation Edge Case:** Try to regenerate a ticket currently in `BACKLOG` → Throws "Ticket is currently in BACKLOG". 
+- **Concurrency Block Edge Case:** User hits regenerate while another `GENERATE_AC` job is already queued/running for the same phase/ticket → Throws "A GENERATE_AC job is already queued".
 
 ---
 
