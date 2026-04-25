@@ -8,6 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CheckCircle2, Lock, ArrowRight, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface PhaseRailProps {
   ticket: Doc<"tickets">;
@@ -97,36 +98,39 @@ export function PhaseRail({ ticket, selectedPhase, setSelectedPhase }: PhaseRail
             return (
               <div
                 key={phase}
-                className={`relative flex items-center gap-4 h-16 group cursor-pointer transition-all duration-200 p-2 -mx-2 rounded-lg
-                  ${isSelected ? "bg-muted" : "hover:bg-muted/50"}
-                `}
+                className={cn(
+                  "relative flex items-center gap-4 h-16 group cursor-pointer transition-all duration-200 p-2 -mx-2 rounded-lg hover:bg-muted/50",
+                  isSelected && "bg-muted"
+                )}
                 onClick={() => setSelectedPhase(phase)}
                 style={{ zIndex: TICKET_STATUSES.length - idx }}
               >
                 {/* Vertical Line Connector */}
                 {idx !== TICKET_STATUSES.length - 1 && (
-                  <div className={`absolute top-12 left-[23px] h-12 w-[2px] transition-colors
-                    ${idx < currentIndex ? "bg-primary" : "bg-muted-foreground/20"}
-                  `} />
+                  <div className={cn(
+                    "absolute top-12 left-[23px] h-12 w-[2px] transition-colors bg-primary",
+                    idx >= currentIndex && "bg-muted-foreground/20"
+                  )} />
                 )}
 
                 {/* Node Icon */}
-                <div className={`relative z-10 shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center bg-background transition-colors
-                  ${isCompleted ? "border-primary text-primary" : ""}
-                  ${isCurrent ? "border-primary text-primary" : ""}
-                  ${!isCompleted && !isCurrent ? "border-muted-foreground/30 text-muted-foreground/30" : ""}
-                `}>
+                <div className={cn(
+                  "relative z-10 shrink-0 size-8 rounded-full border-2 flex items-center justify-center bg-background transition-colors",
+                  (isCompleted || isCurrent) && "border-primary text-primary",
+                  !isCompleted && !isCurrent && "border-muted-foreground/30 text-muted-foreground/30"
+                )}>
                   {isCurrent && <div className="absolute inset-0 rounded-full animate-ping bg-primary/30" />}
-                  {isCompleted ? <CheckCircle2 className="w-5 h-5 relative z-10" /> : (!isCompleted && !isCurrent ? <Lock className="w-4 h-4 relative z-10" /> : <span className="text-xs font-bold relative z-10">{idx + 1}</span>)}
+                  {isCompleted ? <CheckCircle2 className="size-5 relative z-10" /> : (!isCompleted && !isCurrent ? <Lock className="size-4 relative z-10" /> : <span className="text-xs font-bold relative z-10">{idx + 1}</span>)}
                 </div>
 
                 {/* Node Label & Gate Lock */}
                 <div className="flex-1 flex flex-col gap-1">
-                  <p className={`font-medium text-sm transition-colors
-                    ${isCurrent ? "text-primary font-bold" : ""}
-                    ${isCompleted ? "text-foreground" : ""}
-                    ${!isCompleted && !isCurrent ? "text-muted-foreground" : ""}
-                  `}>
+                  <p className={cn(
+                    "font-medium text-sm transition-colors",
+                    isCurrent && "text-primary font-bold",
+                    isCompleted && "text-foreground",
+                    !isCompleted && !isCurrent && "text-muted-foreground"
+                  )}>
                     {PHASE_LABELS[phase]}
                   </p>
 
@@ -134,12 +138,12 @@ export function PhaseRail({ ticket, selectedPhase, setSelectedPhase }: PhaseRail
                     <div className="flex items-center text-xs text-muted-foreground">
                       {isNodeLocked ? (
                         <span className="flex items-center gap-1 text-amber-600 font-medium">
-                          <Lock className="w-3 h-3" />
+                          <Lock className="size-3" />
                           Approval Needed
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-emerald-600 font-medium">
-                          <CheckCircle2 className="w-3 h-3" />
+                          <CheckCircle2 className="size-3" />
                           Approved
                         </span>
                       )}
@@ -167,7 +171,7 @@ export function PhaseRail({ ticket, selectedPhase, setSelectedPhase }: PhaseRail
                     className="flex-1"
                     onClick={() => attemptRewind(TICKET_STATUSES[currentIndex - 1])}
                   >
-                    <ArrowLeft className="w-4 h-4 text-muted-foreground" />
+                    <ArrowLeft className="size-4 text-muted-foreground" />
                     Rewind
                   </Button>
                 </TooltipTrigger>
@@ -183,7 +187,7 @@ export function PhaseRail({ ticket, selectedPhase, setSelectedPhase }: PhaseRail
                   <div className="flex-1 flex">
                     <Button disabled className="w-full">
                       Advance
-                      <ArrowRight className="w-4 h-4" />
+                      <ArrowRight className="size-4" />
                     </Button>
                   </div>
                 </TooltipTrigger>
@@ -198,7 +202,7 @@ export function PhaseRail({ ticket, selectedPhase, setSelectedPhase }: PhaseRail
                 onClick={handleAdvance}
               >
                 Advance
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="size-4" />
               </Button>
             )}
           </TooltipProvider>

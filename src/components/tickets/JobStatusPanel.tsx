@@ -3,9 +3,19 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyMedia,
+} from "@/components/ui/empty";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, FileText, CheckCircle2, PlayCircle, Loader2, XCircle, Ban, RotateCcw } from "lucide-react";
+import { AlertCircle, FileText, CheckCircle2, PlayCircle, XCircle, Ban, RotateCcw } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+import { cn } from "@/lib/utils";
 
 interface JobStatusPanelProps {
   ticketId: Id<"tickets">;
@@ -20,11 +30,11 @@ const statusColors: Record<string, string> = {
 };
 
 const statusIcons: Record<string, React.ReactNode> = {
-  queued: <RotateCcw className="w-3 h-3 opacity-75" />,
-  running: <PlayCircle className="w-3 h-3" />,
-  succeeded: <CheckCircle2 className="w-3 h-3" />,
-  failed: <XCircle className="w-3 h-3" />,
-  cancelled: <Ban className="w-3 h-3" />,
+  queued: <RotateCcw className="size-3 opacity-75" />,
+  running: <PlayCircle className="size-3" />,
+  succeeded: <CheckCircle2 className="size-3" />,
+  failed: <XCircle className="size-3" />,
+  cancelled: <Ban className="size-3" />,
 };
 
 const jobTypeLabels: Record<string, string> = {
@@ -40,27 +50,22 @@ export function JobStatusPanel({ ticketId }: JobStatusPanelProps) {
   const jobs = useQuery(api.jobs.listJobs, { ticketId });
 
   if (jobs === undefined) {
-    return (
-      <div className="w-full h-full p-4 flex flex-col items-center justify-center gap-3 border rounded-xl bg-card/50">
-        <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
-        <p className="text-sm text-muted-foreground">Loading job history...</p>
-      </div>
-    );
+    return <JobStatusPanel.Skeleton />;
   }
 
   if (jobs.length === 0) {
     return (
-      <div className="w-full h-full p-6 flex flex-col items-center justify-center text-center gap-3 border rounded-xl bg-card">
-        <div className="bg-muted p-3 rounded-full">
-          <FileText className="w-6 h-6 text-muted-foreground" />
-        </div>
-        <div className="flex flex-col gap-1 items-center">
-          <h3 className="font-medium text-foreground">No Tasks Yet</h3>
-          <p className="text-sm text-muted-foreground max-w-[200px]">
+      <Empty className="h-full overflow-hidden rounded-xl border-solid bg-card">
+        <EmptyMedia variant="icon">
+          <FileText className="size-6" />
+        </EmptyMedia>
+        <EmptyHeader>
+          <EmptyTitle>No Tasks Yet</EmptyTitle>
+          <EmptyDescription>
             Advance the phase to trigger the first background workflow task.
-          </p>
-        </div>
-      </div>
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
@@ -80,7 +85,7 @@ export function JobStatusPanel({ ticketId }: JobStatusPanelProps) {
               <span className="text-sm font-medium text-foreground truncate">
                 {jobTypeLabels[job.type] || job.type}
               </span>
-              <Badge className={`shrink-0 ${statusColors[job.status]}`} variant="secondary">
+              <Badge className={cn("shrink-0", statusColors[job.status])} variant="secondary">
                 {statusIcons[job.status]}
                 {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
               </Badge>
@@ -97,7 +102,7 @@ export function JobStatusPanel({ ticketId }: JobStatusPanelProps) {
                 <AccordionItem value={`error-${job._id}`} className="border-none">
                   <AccordionTrigger className="py-2 text-xs text-rose-600 hover:text-rose-700 hover:no-underline font-medium flex items-center">
                     <span className="flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
+                      <AlertCircle className="size-3" />
                       View Error Details
                     </span>
                   </AccordionTrigger>
@@ -128,3 +133,28 @@ export function JobStatusPanel({ ticketId }: JobStatusPanelProps) {
     </div>
   );
 }
+
+JobStatusPanel.Skeleton = function JobStatusPanelSkeleton() {
+  return (
+    <div className="flex flex-col border rounded-xl bg-card overflow-hidden h-full animate-pulse">
+      <div className="px-4 py-3 bg-muted/50 border-b flex items-center justify-between">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-5 w-12 rounded-full" />
+      </div>
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex flex-col gap-3 border rounded-lg p-3 bg-background/50">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};

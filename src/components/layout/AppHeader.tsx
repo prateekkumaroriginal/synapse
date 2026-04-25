@@ -26,7 +26,7 @@ import { initialsFromViewer } from "@/lib/viewer-display";
 import { Archive, Settings } from "lucide-react";
 
 export function AppHeader() {
-  const viewer = useQuery(api.users.getViewerProfile, {});
+  const viewer = useQuery(api.users.getViewerProfile);
   const { signOut } = useAuthActions();
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,8 +40,7 @@ export function AppHeader() {
   const segments = location.pathname.split("/");
   const rawProjectId = isProjectWorkspace ? segments[2] : null;
   const projectId = rawProjectId ? (rawProjectId as Id<"projects">) : null;
-  const rawTicketId = isTicketPage ? segments[4] : null;
-  const ticketId = rawTicketId ? (rawTicketId as Id<"tickets">) : null;
+  const ticketId = isTicketPage ? (segments[4] as Id<"tickets">) : null;
 
   const project = useQuery(
     api.projects.getProject,

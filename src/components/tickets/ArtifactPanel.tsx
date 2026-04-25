@@ -9,6 +9,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Textarea } from "@/components/ui/textarea";
 import { FileText, CheckCircle, RotateCcw, XCircle, FileClock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface ArtifactPanelProps {
   ticketId: Id<"tickets">;
@@ -35,11 +37,7 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
   const expectedArtifactType = PHASE_TO_ARTIFACT[selectedPhase];
 
   if (artifacts === undefined) {
-    return (
-      <div className="w-full h-[500px] flex items-center justify-center border rounded-xl bg-card/50">
-        <p className="text-muted-foreground animate-pulse">Loading artifact...</p>
-      </div>
-    );
+    return <ArtifactPanel.Skeleton />;
   }
 
   const activeArtifact = expectedArtifactType
@@ -51,7 +49,7 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
     return (
       <div className="w-full h-[500px] flex flex-col items-center justify-center border rounded-xl bg-card border-dashed gap-4">
         <div className="bg-muted p-4 rounded-full">
-          <FileClock className="w-8 h-8 text-muted-foreground" />
+          <FileClock className="size-8 text-muted-foreground" />
         </div>
         <div className="flex flex-col gap-2 items-center">
           <h2 className="text-xl font-semibold text-foreground tracking-tight">No Artifact Required</h2>
@@ -108,7 +106,7 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
       <div className="bg-muted/30 border-b px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="bg-primary/10 p-2 rounded-md">
-            <FileText className="w-5 h-5 text-primary" />
+            <FileText className="size-5 text-primary" />
           </div>
           <div className="flex flex-col">
             <h2 className="text-lg font-semibold tracking-tight">
@@ -123,7 +121,10 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
         {activeArtifact && (
           <Badge
             variant={activeArtifact.status === "approved" ? "secondary" : "secondary"}
-            className={`px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider ${activeArtifact.status === "approved" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-transparent" : ""}`}
+            className={cn(
+              "px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider",
+              activeArtifact.status === "approved" && "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-transparent"
+            )}
           >
             {activeArtifact.status}
           </Badge>
@@ -141,10 +142,10 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center gap-4">
             <div className="relative">
-              <FileText className="w-12 h-12 text-muted/30" />
+              <FileText className="size-12 text-muted/30" />
               {isCurrentPhase && (
                 <div className="absolute -bottom-2 -right-2 bg-background rounded-full p-1 border shadow-sm">
-                  <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                  <Loader2 className="size-4 text-primary animate-spin" />
                 </div>
               )}
             </div>
@@ -182,7 +183,7 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
                   onClick={handleRegenerate}
                   disabled={isRegenerating || !promptInput.trim()}
                 >
-                  {isRegenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                  {isRegenerating ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
                   Regenerate
                 </Button>
               ) : (
@@ -194,7 +195,7 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
                           variant="outline"
                           disabled
                         >
-                          <RotateCcw className="w-4 h-4" />
+                          <RotateCcw className="size-4" />
                           Regenerate
                         </Button>
                       </div>
@@ -212,7 +213,7 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
                 className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 onClick={handleApprove}
               >
-                <CheckCircle className="w-4 h-4" />
+                <CheckCircle className="size-4" />
                 Approve Document
               </Button>
             ) : (
@@ -222,7 +223,7 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
                 onClick={handleUnapprove}
                 disabled={!isCurrentPhase}
               >
-                <XCircle className="w-4 h-4" />
+                <XCircle className="size-4" />
                 Revoke Approval
               </Button>
             )}
@@ -232,3 +233,35 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
     </div>
   );
 }
+
+ArtifactPanel.Skeleton = function ArtifactPanelSkeleton() {
+  return (
+    <div className="flex flex-col h-[600px] border rounded-xl bg-card overflow-hidden shadow-sm animate-pulse">
+      <div className="bg-muted/30 border-b px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Skeleton className="size-9 rounded-md" />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+        </div>
+        <Skeleton className="h-6 w-20 rounded-full" />
+      </div>
+      <div className="flex flex-1 flex-col gap-4 p-6">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-[90%]" />
+        <Skeleton className="h-4 w-[95%]" />
+        <Skeleton className="h-4 w-[85%]" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-[92%]" />
+      </div>
+      <div className="bg-card border-t px-6 py-4 flex flex-col gap-4">
+        <Skeleton className="h-24 w-full rounded-md" />
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-10 w-32" />
+          <Skeleton className="h-10 w-40" />
+        </div>
+      </div>
+    </div>
+  );
+};
