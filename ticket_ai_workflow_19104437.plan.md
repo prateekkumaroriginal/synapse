@@ -230,54 +230,70 @@ flowchart LR
 
 ---
 
-# Phase 4 — Basic Ticket Detail UI
+# Phase 4 - Basic Ticket Detail UI COMPLETE
 
-> **Goal**: Build the ticket detail page with phase rail, artifact display, approve/reject/regenerate actions, and job status. Uses manually-created artifacts from Phase 2 — no worker integration yet. This lets you validate the entire UI flow before wiring up AI.
+> **Goal**: Provide a dedicated ticket detail page with phase controls, artifact review/actions, and live job visibility. This phase is UI-only and depends on the backend mutations/queries from Phases 1-3.
 
 ### Scope
 
-1. **New route** — `/projects/:projectId/tickets/:ticketId` (or drawer/modal from workspace, your choice):
-   - **Phase rail** (vertical stepper or horizontal tabs): shows all phases, highlights current, indicates gate status (locked 🔒 / unlocked 🔓 / completed ✅).
-   - **"Advance" button**: calls `advancePhase`, disabled when gate is locked (with tooltip showing reason).
-   - **"Rewind" button**: calls `rewindPhase` (with confirmation dialog).
+1. **Route + page shell** - Implemented at `/projects/:projectId/tickets/:ticketId`:
+   - [`src/App.tsx`](src/App.tsx) registers the route.
+   - [`src/pages/TicketDetailPage.tsx`](src/pages/TicketDetailPage.tsx) loads the project and ticket, defaults the selected phase to the ticket's active phase, and renders a 3-column layout:
+     - left: phase rail
+     - center: artifact panel
+     - right: job status panel
 
-2. **Artifact panel** (main content area when a phase is selected):
-   - Renders the artifact content as **markdown** (one artifact per phase).
-   - **Actions**:
-     - "Approve" → calls `approveArtifact`.
-     - "Unapprove" → calls `unapproveArtifact` (resets to draft, re-locks gate).
-     - "Regenerate" → opens modal with prompt textarea, calls `requestRegeneration` (overwrites artifact content via `upsertArtifact`, resets to draft).
-   - Shows `status` badge (`draft` / `approved`).
+2. **Phase rail** - Implemented in [`src/components/tickets/PhaseRail.tsx`](src/components/tickets/PhaseRail.tsx):
+   - Vertical stepper for all `TICKET_STATUSES`.
+   - Current phase, completed phases, and locked gated phases are visually distinct.
+   - Reads artifacts via `getTicketArtifacts({ ticketId })` to determine whether the current gate is locked.
+   - **Advance** calls `advancePhase`, is disabled when the current gate is locked, and shows a tooltip.
+   - **Rewind** calls `rewindPhase` with a confirmation dialog.
+   - Selecting a phase in the rail changes the artifact shown in the center panel.
 
-3. **Job status panel** (sidebar or bottom bar):
-   - `useQuery` on `listJobs({ ticketId })` — live-updating job list.
-   - Status chips: queued (gray), running (blue pulse), succeeded (green), failed (red), cancelled (dim).
-   - Expandable rows show `error` or `result` summary.
+3. **Artifact panel** - Implemented in [`src/components/tickets/ArtifactPanel.tsx`](src/components/tickets/ArtifactPanel.tsx):
+   - Maps phases to a single expected artifact type (`AC`, `PLAN`, `CODE`).
+   - Shows a "No Artifact Required" empty state for non-artifact phases like `BACKLOG` and `COMPLETED`.
+   - Displays artifact content in a preserved plain-text/code-style block, not markdown rendering.
+   - Shows the artifact status badge (`draft` / `approved`).
+   - **Approve Document** calls `approveArtifact`.
+   - **Revoke Approval** calls `unapproveArtifact`.
+   - **Regenerate** is an inline textarea + button in the footer, not a modal; it calls `requestRegeneration({ ticketId, phase, userPrompt })`.
+   - If no artifact exists yet for the selected phase, the panel shows a waiting state. If the selected phase is also the current ticket phase, that waiting state shows a spinner.
 
-4. **Navigation**: add link from [`ProjectWorkspacePage`](src/pages/ProjectWorkspacePage.tsx) ticket cards to the detail page.
+4. **Job status panel** - Implemented in [`src/components/tickets/JobStatusPanel.tsx`](src/components/tickets/JobStatusPanel.tsx):
+   - Uses `listJobs({ ticketId })` for live-updating ticket job history.
+   - Status badges are color-coded for queued, running, succeeded, failed, and cancelled.
+   - Failed jobs expose expandable error details.
+   - Successful jobs show a small result preview when `result.content` exists.
+
+5. **Navigation** - Implemented:
+   - Ticket detail navigation is wired from [`src/components/tickets/TicketRow.tsx`](src/components/tickets/TicketRow.tsx), which links each row to `/projects/${ticket.projectId}/tickets/${ticket._id}`.
+   - [`src/pages/ProjectWorkspacePage.tsx`](src/pages/ProjectWorkspacePage.tsx) renders those rows.
 
 ### Key files
 
-| Action | File |
-|--------|------|
-| NEW    | `src/pages/TicketDetailPage.tsx` |
-| NEW    | `src/components/tickets/PhaseRail.tsx` |
-| NEW    | `src/components/tickets/ArtifactPanel.tsx` |
-| NEW    | `src/components/tickets/JobStatusPanel.tsx` |
-| MODIFY | `src/App.tsx` or router config — add route |
-| MODIFY | [`src/pages/ProjectWorkspacePage.tsx`](src/pages/ProjectWorkspacePage.tsx) — link to detail |
+| Action | File | Status |
+|--------|------|--------|
+| NEW    | [`src/pages/TicketDetailPage.tsx`](src/pages/TicketDetailPage.tsx) | Done |
+| NEW    | [`src/components/tickets/PhaseRail.tsx`](src/components/tickets/PhaseRail.tsx) | Done |
+| NEW    | [`src/components/tickets/ArtifactPanel.tsx`](src/components/tickets/ArtifactPanel.tsx) | Done |
+| NEW    | [`src/components/tickets/JobStatusPanel.tsx`](src/components/tickets/JobStatusPanel.tsx) | Done |
+| MODIFY | [`src/App.tsx`](src/App.tsx) | Done |
+| MODIFY | [`src/components/tickets/TicketRow.tsx`](src/components/tickets/TicketRow.tsx) | Done |
+| MODIFY | [`src/pages/ProjectWorkspacePage.tsx`](src/pages/ProjectWorkspacePage.tsx) | Indirectly wired via `TicketRow` |
 
 ### How to test
 
-1. Navigate to a ticket detail page → phase rail shows all phases, current phase highlighted.
-2. Manually call `upsertArtifact` (via dashboard) → artifact appears in the panel as markdown.
-3. Click "Approve" → badge changes to ✅, advance button becomes enabled.
-4. Click "Advance" → phase moves forward, rail updates.
-5. Click "Regenerate" → modal appears, submit calls `upsertArtifact` (overwrites content), job status panel shows "queued".
-6. Click "Rewind" → confirmation dialog → phase moves back.
+1. Navigate to `/projects/:projectId/tickets/:ticketId` -> the ticket detail page loads with the current phase selected.
+2. Click different phases in the rail -> the center artifact panel updates to that phase.
+3. Manually create or update an artifact via `upsertArtifact` -> the artifact appears in the panel as plain text.
+4. Click **Approve Document** -> the artifact badge changes to approved and the current gate unlocks.
+5. Click **Advance** -> the ticket moves forward and the rail updates.
+6. Click **Regenerate** on the current phase with prompt text entered -> `requestRegeneration` queues a job and the job panel updates.
+7. Click **Rewind** -> confirmation dialog appears; confirm to move back one phase.
 
 ---
-
 # Phase 5 — Worker Container
 
 > **Goal**: Build the external worker that polls Convex for jobs, runs ForgeCode/BTCA in a Docker container, and calls back with results. Test with a simple echo/mock job before wiring real AI.
