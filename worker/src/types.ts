@@ -16,7 +16,18 @@ export type JobStatus =
   | "failed"
   | "cancelled";
 
-export type JobArgs = Record<string, unknown>;
+export interface GenerateAcJobArgs {
+  phase: "TEST_CASE";
+  ticketTitle: string;
+  ticketDescription: string | null;
+  ticketType: "TASK" | "BUG";
+  gitRemoteUrl: string | null;
+  defaultBranch: string | null;
+  btcaProjectId: string | null;
+  userPrompt: string;
+}
+
+export type JobArgs = GenerateAcJobArgs;
 
 export interface ClaimedJob {
   _id: string;

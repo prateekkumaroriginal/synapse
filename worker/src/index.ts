@@ -104,7 +104,16 @@ async function processJob(job: ClaimedJob): Promise<JobHandlerResult> {
     };
   }
 
-  return await handler(job);
+  try {
+    return await handler(job);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    return {
+      status: "failed",
+      error: message.slice(0, 4_000),
+    };
+  }
 }
 
 async function runWorker(config: WorkerConfig): Promise<void> {

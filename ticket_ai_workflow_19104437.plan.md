@@ -377,43 +377,69 @@ flowchart LR
 
 > **Goal**: Wire the first real AI phase — entering TEST_CASE triggers AC generation, the worker produces acceptance criteria via ForgeCode, and the user can view/approve/regenerate in the UI.
 
+> [!NOTE]
+> **Pre-Phase 6 plumbing is implemented.** `advancePhase` now auto-enqueues the first `GENERATE_AC` job when entering `TEST_CASE`, and both automatic generation and regeneration jobs carry a ticket/project prompt snapshot in `args`. The worker context layer validates and exposes that snapshot while the AC handler still returns deterministic stub content. Remaining Phase 6 work is replacing the stub with the real Forge/BTCA generation pipeline and installing/configuring the runtime toolchain.
+
 ### Scope
 
 1. **Auto-enqueue on phase entry**:
-   - When `advancePhase` moves a ticket to `TEST_CASE`, auto-enqueue a `GENERATE_AC` job (idempotent — skip if one is already `queued`/`running` for this ticket+phase).
+   - When `advancePhase` moves a ticket to `TEST_CASE`, auto-enqueue a `GENERATE_AC` job after the status patch succeeds.
+   - Use an idempotency key like `ticket:${ticketId}:phase:TEST_CASE:job:GENERATE_AC` so retrying the mutation does not create duplicate initial jobs.
+   - Before inserting, check `asyncJobs` for any existing job for this ticket with `status` `"queued"` or `"running"` and skip enqueue if one exists. A ticket may have only one active job overall.
+   - Store a minimal prompt snapshot in `args`: `ticketTitle`, `ticketDescription`, `ticketType`, `userPrompt` (empty for automatic generation), and `phase: "TEST_CASE"`. This keeps the worker independent of end-user auth while still using data read inside the authorized Convex mutation.
 
-2. **Worker handler `worker/src/handlers/generateAC.ts`**:
+2. **Worker context contract**:
+   - Extend `worker/src/contextBundle.ts` from the Phase 5 stub (`jobId`, `attempt`, `userPrompt`) to a real bounded `ContextBundle`.
+   - Read ticket/project prompt inputs from `job.args` rather than from a new public query. Required fields: ticket title, optional description, ticket type, optional `btcaProjectId`, optional `gitRemoteUrl`, optional `defaultBranch`, and optional user refinement prompt.
+   - If additional server context is needed later, add a secured worker-only HTTP route instead of exposing unauthenticated public Convex queries.
+
+3. **Worker handler `worker/src/handlers/generateAC.ts`**:
    - Build bounded prompt from ticket title/description/type.
-   - Call BTCA (`btca ask` against the indexed repo) for 1–3 focused questions (e.g. "modules likely touched", "existing test patterns") and inject **short** answers into the prompt — never full tree listings.
-   - Run `forge --agent muse -p "..."` with strict system prompt: "Output only Gherkin-style acceptance criteria in markdown."
-   - Parse output → call `/worker/complete` with content.
+   - Call BTCA (`btca ask`) only when `btcaProjectId` or equivalent project config exists; otherwise proceed without BTCA and include an explicit "BTCA context unavailable" note in the prompt metadata, not in the generated artifact.
+   - Ask 1-3 focused repo questions (for example "modules likely touched" and "existing test patterns") and inject **short** answers into the prompt. Never pass full tree listings or unbounded search output.
+   - Run `forge --agent muse -p "..."` with strict instructions: output only Gherkin-style acceptance criteria in markdown.
+   - Parse output, trim tool chatter/code fences if necessary, validate non-empty markdown, then call `/worker/complete` with `result.content`.
+   - On Forge/BTCA failure, call `/worker/complete` with `status: "failed"` and a bounded error string so the UI job panel can show the failure.
 
-3. **`completeJob` side effect for `GENERATE_AC`**:
-   - Calls `upsertArtifact({ ticketId, type: "AC", content, createdByJobId })` — overwrites any existing draft, resets to `"draft"` status.
-   - No gate table to update — `canAdvance` queries the single artifact row via `.unique()`.
+4. **Worker runtime/tooling**:
+   - Update `worker/Dockerfile` to install the real Phase 6 toolchain: ForgeCode CLI plus Bun/BTCA if BTCA requires Bun.
+   - Keep provider/API auth non-interactive via environment variables (`ANTHROPIC_API_KEY`, `BTCA_API_KEY`, etc.); do not rely on interactive CLI login.
+   - Add clear env validation for optional BTCA/project settings and required Forge/provider settings.
 
-4. **Regenerate flow**:
-   - User clicks "Regenerate" in UI → `requestRegeneration` enqueues new `GENERATE_AC` job with `userPrompt`.
+5. **`completeJob` side effect for `GENERATE_AC`**:
+   - Already implemented generically in [`convex/jobs.ts`](convex/jobs.ts): when `result.content` exists and job type maps to `AC`, it inserts/patches the single artifact row, resets status to `"draft"`, stores `createdByJobId`, and links `artifactId` on the job.
+   - Phase 6 should only adjust this if the result payload shape changes. No gate table update is needed because `canAdvance` queries the artifact row via `.unique()`.
+
+6. **Regenerate flow**:
+   - User clicks "Regenerate" in UI → `requestRegeneration` enqueues new `GENERATE_AC` job with `userPrompt` plus the same ticket/project prompt snapshot used by auto-enqueue.
    - Worker uses `userPrompt` as refinement context.
-   - `completeJob` calls `upsertArtifact` — overwrites the existing artifact content in place, resets status to `"draft"`.
+   - `completeJob` overwrites the existing artifact content in place and resets status to `"draft"` through the existing side effect.
 
 ### Key files
 
 | Action | File |
 |--------|------|
 | MODIFY | [`convex/workflowEngine.ts`](convex/workflowEngine.ts) — auto-enqueue on entry |
-| MODIFY | [`convex/jobs.ts`](convex/jobs.ts) — `completeJob` side effects for AC |
-| NEW    | `worker/src/handlers/generateAC.ts` |
-| MODIFY | `worker/src/index.ts` — route `GENERATE_AC` to handler |
+| MODIFY | [`convex/workflowEngine.ts`](convex/workflowEngine.ts) — include ticket/project snapshot in auto-enqueue and regeneration args |
+| VERIFY | [`convex/jobs.ts`](convex/jobs.ts) — existing `completeJob` side effects for AC remain compatible |
+| MODIFY | `worker/src/contextBundle.ts` — build real bounded prompt context from job args |
+| MODIFY | `worker/src/handlers/generateAC.ts` — replace deterministic stub with BTCA + Forge/Muse pipeline |
+| MODIFY | `worker/src/index.ts` — keep `GENERATE_AC` dispatch and completion behavior |
+| MODIFY | `worker/src/types.ts` — type structured job args/result payloads |
+| MODIFY | `worker/Dockerfile` — install ForgeCode/BTCA runtime dependencies |
+| MODIFY | `worker/.env.example` — document Forge/BTCA/provider env vars |
 
 ### How to test
 
 1. Advance a ticket to `TEST_CASE` → job auto-enqueued (visible in UI job panel as "queued").
-2. Worker claims and processes → job becomes "running" in UI.
-3. Worker completes → artifact panel shows generated AC markdown with `status: "draft"` badge.
-4. Click "Approve" → gate unlocks, "Advance to Planning" button enables.
-5. Click "Regenerate" with prompt "Add edge cases for empty input" → new job enqueued → artifact content replaced with new version, status reset to `"draft"`.
-6. Advance to PLANNING → succeeds.
+2. Advance/retry behavior does not create a duplicate active `GENERATE_AC` job for the same ticket.
+3. Worker claims and processes → job becomes "running" in UI.
+4. Worker prompt includes ticket title/description/type and bounded BTCA context when configured.
+5. Worker completes → artifact panel shows generated AC markdown with `status: "draft"` badge.
+6. Click "Approve" → gate unlocks, "Advance to Planning" button enables.
+7. Click "Regenerate" with prompt "Add edge cases for empty input" when no other ticket job is active → new job enqueued with snapshot + prompt → artifact content replaced with new version, status reset to `"draft"`.
+8. Advance to PLANNING → succeeds.
+9. Run failure smoke test with missing Forge/provider config → job becomes `"failed"` with a bounded error message and no artifact overwrite.
 
 ---
 

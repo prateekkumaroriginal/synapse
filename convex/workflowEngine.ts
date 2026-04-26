@@ -31,6 +31,93 @@ const PHASE_TO_JOB_TYPE: Partial<Record<TicketStatus, JobType>> = {
   CODE_GENERATION: "GENERATE_CODE",
 };
 
+function buildJobArgsForPhase(
+  ticket: {
+    title: string;
+    description?: string;
+    type: "TASK" | "BUG";
+  },
+  project: {
+    gitRemoteUrl?: string;
+    defaultBranch?: string;
+    btcaProjectId?: string;
+  },
+  phase: TicketStatus,
+  userPrompt: string,
+) {
+  return {
+    phase,
+    ticketTitle: ticket.title,
+    ticketDescription: ticket.description ?? null,
+    ticketType: ticket.type,
+    gitRemoteUrl: project.gitRemoteUrl ?? null,
+    defaultBranch: project.defaultBranch ?? null,
+    btcaProjectId: project.btcaProjectId ?? null,
+    userPrompt,
+  };
+}
+
+async function hasActiveJob(
+  ctx: MutationCtx,
+  ticketId: Id<"tickets">,
+): Promise<boolean> {
+  const jobs = await ctx.db
+    .query("asyncJobs")
+    .withIndex("by_ticketId", (q) => q.eq("ticketId", ticketId))
+    .order("desc")
+    .collect();
+
+  return jobs.some(
+    (job) => job.status === "queued" || job.status === "running",
+  );
+}
+
+async function enqueuePhaseEntryJob(
+  ctx: MutationCtx,
+  ticketId: Id<"tickets">,
+  to: TicketStatus,
+): Promise<void> {
+  const jobType = PHASE_TO_JOB_TYPE[to] ?? null;
+
+  if (jobType === null) {
+    return;
+  }
+
+  const ticket = await ctx.db.get("tickets", ticketId);
+  if (ticket === null) {
+    throw new Error("Ticket not found");
+  }
+
+  if (await hasActiveJob(ctx, ticketId)) {
+    return;
+  }
+
+  const project = await ctx.db.get("projects", ticket.projectId);
+  if (project === null) {
+    throw new Error("Project not found");
+  }
+
+  const idempotencyKey = `ticket:${ticketId}:phase:${to}:job:${jobType}`;
+  const existing = await ctx.db
+    .query("asyncJobs")
+    .withIndex("by_idempotencyKey", (q) => q.eq("idempotencyKey", idempotencyKey))
+    .unique();
+
+  if (existing !== null) {
+    return;
+  }
+
+  await ctx.db.insert("asyncJobs", {
+    ticketId,
+    projectId: ticket.projectId,
+    type: jobType,
+    status: "queued",
+    attempt: 0,
+    args: buildJobArgsForPhase(ticket, project, to, ""),
+    idempotencyKey,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // canAdvance — pure async helper (reads DB, no writes)
 // ---------------------------------------------------------------------------
@@ -126,6 +213,7 @@ export const advancePhase = mutation({
     if (!allowed) throw new Error(reason ?? "Cannot advance phase");
 
     await ctx.db.patch("tickets", ticketId, { status: to });
+    await enqueuePhaseEntryJob(ctx, ticketId, to);
   },
 });
 
@@ -189,18 +277,13 @@ export const requestRegeneration = mutation({
       throw new Error(`Phase ${phase} does not support regeneration`);
     }
 
-    // Check for existing running or queued job for this ticket of this type
-    const existingJobs = await ctx.db
-      .query("asyncJobs")
-      .withIndex("by_ticketId", (q) => q.eq("ticketId", ticketId))
-      .collect();
+    if (await hasActiveJob(ctx, ticketId)) {
+      throw new Error("A job is already queued or running for this ticket");
+    }
 
-    const activeJob = existingJobs.find(
-      (job) => job.type === jobType && (job.status === "queued" || job.status === "running")
-    );
-
-    if (activeJob) {
-      throw new Error(`A ${jobType} job is already ${activeJob.status}`);
+    const project = await ctx.db.get("projects", ticket.projectId);
+    if (project === null) {
+      throw new Error("Project not found");
     }
 
     return await ctx.db.insert("asyncJobs", {
@@ -209,7 +292,7 @@ export const requestRegeneration = mutation({
       type: jobType,
       status: "queued",
       attempt: 0,
-      args: { userPrompt },
+      args: buildJobArgsForPhase(ticket, project, phase, userPrompt.trim()),
       idempotencyKey: crypto.randomUUID(),
     });
   },
