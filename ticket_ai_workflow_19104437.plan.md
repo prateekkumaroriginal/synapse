@@ -294,28 +294,39 @@ flowchart LR
 7. Click **Rewind** -> confirmation dialog appears; confirm to move back one phase.
 
 ---
-# Phase 5 — Worker Container
+# Phase 5 - Worker Container
 
-> **Goal**: Build the external worker that polls Convex for jobs, runs ForgeCode/BTCA in a Docker container, and calls back with results. Test with a simple echo/mock job before wiring real AI.
+> **Goal**: Build the external worker that polls Convex for jobs, processes real workflow job types in a container, and calls back with results. This phase proves the end-to-end worker plumbing with a deterministic stub handler before real ForgeCode/BTCA generation is introduced in Phase 6.
 
 ### Scope
 
-1. **New directory `worker/`** at repo root:
-   - **`Dockerfile`**: base image (Debian/Ubuntu) + `git` + `curl` + Node.js + `pnpm` + [Bun](https://bun.sh) (BTCA requires it) + [`btca` CLI](https://docs.btca.dev/guides/quickstart) + [ForgeCode](https://forgecode.dev/docs/commands) install.
-   - **`worker/src/index.ts`** (entrypoint, runs with Bun):
-     - Job loop: `POST /worker/claim` → if job returned, process it → `POST /worker/complete`.
+1. **Current backend status**:
+   - [`convex/http.ts`](convex/http.ts) already exposes `POST /worker/claim` and `POST /worker/complete`.
+   - [`convex/jobs.ts`](convex/jobs.ts) already implements `claimNextJob` and `completeJob`.
+   - The missing deliverable for this phase is the external `worker/` implementation.
+
+2. **New directory `worker/`** at repo root:
+   - **`Dockerfile`**: base image (Debian/Ubuntu) + `git` + `curl` + Node.js + `pnpm` + [`btca` CLI](https://docs.btca.dev/guides/quickstart) + [ForgeCode](https://forgecode.dev/docs/commands) install.
+   - **`worker/package.json`**: managed with `pnpm`.
+   - **`worker/src/index.ts`** (entrypoint, runs on Node):
+     - Job loop: `POST /worker/claim` -> if a job is returned, process it -> `POST /worker/complete`.
      - Configurable poll interval (e.g. 5s).
      - Graceful shutdown on SIGTERM.
-   - **`worker/src/contextBundle.ts`**: builds a `ContextBundle` from job args — ticket fields, approved prior artifacts, BTCA Q&A pairs with **token budget** (truncate with explicit `[truncated]`).
-   - **`worker/src/handlers/`**: one handler per job type (initially just a mock/echo handler for testing).
+   - **`worker/src/contextBundle.ts`**: builds the minimal Phase 5 stub context from the claimed job. Real ticket fields, approved prior artifacts, and BTCA Q&A are deferred to Phase 6+.
+   - **`worker/src/handlers/`**: one handler per job type.
+   - Initial handler should target a **real** workflow job type, preferably `GENERATE_AC`, but return deterministic stub content in Phase 5. This intentionally exercises the same completion and artifact side effects that later phases will rely on.
 
-2. **Environment variables** the container needs:
-   - `CONVEX_URL` — the deployment HTTP URL.
-   - `WORKER_SECRET` — matches the Convex env var.
-   - `ANTHROPIC_API_KEY` (or other provider keys) — for ForgeCode.
-   - `BTCA_API_KEY` — if BTCA requires one.
+3. **Environment variables** the container needs:
+   - `CONVEX_URL` - the deployment HTTP URL.
+   - `WORKER_SECRET` - matches the Convex env var.
+   - `POLL_INTERVAL_MS` - explicit polling delay in milliseconds.
+   - `CLAIM_JOB_TYPE` - currently must be `GENERATE_AC`.
+   - `ANTHROPIC_API_KEY` (or other provider keys) - reserved for later ForgeCode phases.
+   - `BTCA_API_KEY` - only if BTCA requires one.
 
-3. **Non-interactive ForgeCode auth**: mount provider API keys via env vars; avoid `:login` in CI. Document `forge provider` non-interactive setup if available, else use pre-seeded config volume.
+4. **Non-interactive tool auth**:
+   - Mount provider API keys via env vars; avoid `:login` in CI.
+   - Keep the worker runtime and package manager on Node + `pnpm` to minimize compatibility risk in the orchestration layer.
 
 ### Key files
 
@@ -324,21 +335,44 @@ flowchart LR
 | NEW    | `worker/Dockerfile` |
 | NEW    | `worker/src/index.ts` |
 | NEW    | `worker/src/contextBundle.ts` |
-| NEW    | `worker/src/handlers/echo.ts` (mock handler for testing) |
+| NEW    | `worker/src/handlers/generateAC.ts` (deterministic stub for Phase 5) |
 | NEW    | `worker/package.json` |
 | NEW    | `worker/.env.example` |
 
 ### How to test
 
-1. `docker build -t synapse-worker ./worker` → builds successfully.
-2. Enqueue a mock job in Convex dashboard (type: `"GENERATE_AC"`, or a test type).
-3. `docker run --env-file worker/.env synapse-worker` → container starts, claims the job, runs echo handler, calls `/worker/complete`.
-4. Verify in Convex dashboard: job status is `succeeded`, result contains echo data.
-5. Stop container (Ctrl+C) → graceful shutdown, no orphaned jobs.
-6. Test with wrong `WORKER_SECRET` → worker gets 401, logs error, retries with backoff.
+1. Run a local type check first: `pnpm exec tsc -p worker/tsconfig.json`.
+2. Create a real worker env file from [`worker/.env.example`](worker/.env.example):
+   - set `CONVEX_URL` to your deployed Convex site URL
+   - set `WORKER_SECRET` to the same secret configured for [`convex/http.ts`](convex/http.ts)
+   - optionally adjust `POLL_INTERVAL_MS`
+3. Build the container: `docker build -t synapse-worker -f worker/Dockerfile .`.
+4. Start the main app/backend if needed and sign in.
+5. Prepare a ticket in `TEST_CASE`:
+   - open a ticket detail page
+   - move the ticket to `TEST_CASE` if it is not already there
+   - copy the ticket id and project id from the URL/data
+6. In the Convex dashboard, insert a row into `asyncJobs`:
+   - `ticketId`: the ticket id
+   - `projectId`: the project id
+   - `type`: `"GENERATE_AC"`
+   - `status`: `"queued"`
+   - `attempt`: `0`
+   - `args`: `{ "userPrompt": "Phase 5 smoke test" }`
+   - `idempotencyKey`: any unique string, for example `phase-5-smoke-<timestamp>`
+7. Start the worker: `docker run --env-file worker/.env synapse-worker`.
+8. Verify the runtime path:
+   - the worker logs that it claimed a `GENERATE_AC` job
+   - the worker logs that it completed the job successfully
+9. Verify the backend state:
+   - in the ticket detail page, the job panel moves from `queued` -> `running` -> `succeeded`
+   - in the artifact panel, the AC artifact appears or updates with deterministic stub content
+   - in Convex, the `asyncJobs` row stores `result`
+   - in Convex, the `artifacts` row is created or updated with `status: "draft"`
+10. Stop the worker with Ctrl+C and verify it shuts down cleanly after the current loop iteration.
+11. Negative test: run the worker with an invalid `WORKER_SECRET` and verify it receives `401` responses and does not complete queued jobs.
 
 ---
-
 # Phase 6 — AC Generation End-to-End (TEST_CASE Phase)
 
 > **Goal**: Wire the first real AI phase — entering TEST_CASE triggers AC generation, the worker produces acceptance criteria via ForgeCode, and the user can view/approve/regenerate in the UI.
