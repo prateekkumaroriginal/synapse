@@ -1,45 +1,43 @@
-# Welcome to your Convex + React (Vite) + Convex Auth app
+# Synapse
 
-This is a [Convex](https://convex.dev/) project created with [`npm create convex`](https://www.npmjs.com/package/create-convex).
+Synapse is a Convex + React + Vite app for managing project workflows, tickets, generated artifacts, and asynchronous AI job processing.
 
-After the initial setup (<2 minutes) you'll have a working full-stack app using:
+## Tech Stack
 
-- Convex as your backend (database, server logic)
-- [React](https://react.dev/) as your frontend (web page interactivity)
-- [Vite](https://vitest.dev/) for optimized web hosting
-- [Tailwind](https://tailwindcss.com/) for building great looking UI
-- [Convex Auth](https://labs.convex.dev/auth) for authentication
+- Convex for backend functions, database, auth, and HTTP worker endpoints
+- React and Vite for the frontend
+- Tailwind CSS and shadcn-style UI primitives
+- Convex Auth with password-based sign-in
+- A Node worker under `worker/` for async job execution
 
-## Get started
+## Development
 
-If you just cloned this codebase and didn't use `npm create convex`, run:
+Install dependencies with pnpm:
 
-```
-npm install
-npm run dev
-```
-
-If you're reading this README on GitHub and want to use this template, run:
-
-```
-npm create convex@latest -- -t react-vite-convexauth
+```sh
+pnpm install
 ```
 
-For more information on how to configure Convex Auth, check out the [Convex Auth docs](https://labs.convex.dev/auth/).
+Start the app:
 
-For more examples of different Convex Auth flows, check out this [example repo](https://www.convex.dev/templates/convex-auth).
+```sh
+pnpm dev
+```
 
-## Learn more
+Run checks before submitting changes:
 
-To learn more about developing your project with Convex, check out:
+```sh
+pnpm lint
+pnpm build
+```
 
-- The [Tour of Convex](https://docs.convex.dev/get-started) for a thorough introduction to Convex principles.
-- The rest of [Convex docs](https://docs.convex.dev/) to learn about all Convex features.
-- [Stack](https://stack.convex.dev/) for in-depth articles on advanced topics.
+## Worker
 
-## Join the community
+The worker is a separate package in `worker/`.
 
-Join thousands of developers building full-stack apps with Convex:
+```sh
+pnpm --dir worker install
+pnpm --dir worker build
+```
 
-- Join the [Convex Discord community](https://convex.dev/community) to get help in real-time.
-- Follow [Convex on GitHub](https://github.com/get-convex/), star and contribute to the open-source implementation of Convex.
+It expects `CONVEX_URL`, `WORKER_SECRET`, `POLL_INTERVAL_MS`, and `CLAIM_JOB_TYPE` at runtime.

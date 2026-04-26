@@ -93,7 +93,6 @@ export default defineSchema({
     domain: v.string(),
   }).index("by_project", ["projectId"]),
 
-  // Phase 1 stub — mutations added in Phase 2
   artifacts: defineTable({
     ticketId: v.id("tickets"),
     type: artifactType,
@@ -108,7 +107,6 @@ export default defineSchema({
     .index("by_ticketId", ["ticketId"])
     .index("by_ticketId_and_type", ["ticketId", "type"]),
 
-  // Phase 1 stub — mutations added in Phase 3
   asyncJobs: defineTable({
     ticketId: v.id("tickets"),
     projectId: v.id("projects"),
