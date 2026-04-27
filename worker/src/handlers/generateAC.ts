@@ -1,56 +1,262 @@
-import { buildContextBundle } from "../contextBundle.js";
+import { spawn } from "node:child_process";
+import { buildContextBundle, type ContextBundle } from "../contextBundle.js";
 import type { ClaimedJob, JobHandlerResult } from "../types.js";
 
-function buildStubContent(job: ClaimedJob): string {
-  const context = buildContextBundle(job);
-  const promptLine = context.userPrompt
-    ? `- Regeneration note: ${context.userPrompt}`
-    : "- Regeneration note: none";
-  const descriptionLine = context.ticketDescription
-    ? `- Ticket description: ${context.ticketDescription}`
-    : "- Ticket description: none";
-  const btcaLine = context.btcaProjectId
-    ? `- BTCA project: ${context.btcaProjectId}`
-    : "- BTCA project: not configured";
+const DEFAULT_COMMAND_TIMEOUT_MS = 120_000;
+const MAX_BTCA_ANSWER_CHARS = 1_200;
+const MAX_ERROR_CHARS = 4_000;
+const GHERKIN_RESPONSE_START_PATTERN = /^(?:Feature:|#{1,6}\s*Scenario:)/i;
+const FORGE_LOG_LINE_PATTERN =
+  /(?:WARNING: Forge|Migrated \d+ provider|Initialize [0-9a-f-]{36}|\[[0-9:]+\]\s*(?:WARNING|Migrated|Initialize))/i;
+
+interface CommandResult {
+  stdout: string;
+  stderr: string;
+}
+
+interface RunCommandOptions {
+  input?: string;
+  timeoutMs?: number;
+}
+
+function optionalEnv(name: string): string | null {
+  const value = process.env[name];
+
+  return value && value.trim().length > 0 ? value.trim() : null;
+}
+
+function requireProviderConfig(): void {
+  const providerKeys = [
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_AI_STUDIO_API_KEY",
+    "OPENAI_API_KEY",
+    "OPENROUTER_API_KEY",
+    "FORGE_PROVIDER_API_KEY",
+  ];
+
+  if (providerKeys.some((key) => optionalEnv(key) !== null)) {
+    return;
+  }
+
+  throw new Error(
+    `Missing provider API key. Set one of ${providerKeys.join(", ")} for non-interactive ForgeCode execution.`,
+  );
+}
+
+function truncate(value: string, maxChars: number): string {
+  const normalized = value.trim();
+
+  if (normalized.length <= maxChars) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxChars)}\n[truncated]`;
+}
+
+async function runCommand(
+  command: string,
+  args: string[],
+  options: RunCommandOptions = {},
+): Promise<CommandResult> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
+
+  return await new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      env: process.env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error(`${command} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+
+    child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
+    child.on("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+
+      const stdout = Buffer.concat(stdoutChunks).toString("utf8");
+      const stderr = Buffer.concat(stderrChunks).toString("utf8");
+
+      if (code !== 0) {
+        reject(
+          new Error(
+            `${command} exited with ${code ?? "unknown"}: ${truncate(stderr || stdout, MAX_ERROR_CHARS)}`,
+          ),
+        );
+        return;
+      }
+
+      resolve({ stdout, stderr });
+    });
+
+    if (options.input) {
+      child.stdin.write(options.input);
+    }
+
+    child.stdin.end();
+  });
+}
+
+function getBtcaQuestions(context: ContextBundle): string[] {
+  return [
+    `For ticket "${context.ticketTitle}", which modules or files are most likely relevant? Answer briefly.`,
+    `For ticket "${context.ticketTitle}", what existing tests or acceptance patterns should guide Gherkin criteria? Answer briefly.`,
+  ];
+}
+
+async function getBtcaContext(context: ContextBundle): Promise<string> {
+  if (context.btcaProjectId === null) {
+    return "BTCA context unavailable: no btcaProjectId configured for this project.";
+  }
+
+  const btcaBin = optionalEnv("BTCA_BIN") ?? "btca";
+  const timeoutMs = Number.parseInt(
+    optionalEnv("BTCA_TIMEOUT_MS") ?? `${DEFAULT_COMMAND_TIMEOUT_MS}`,
+    10,
+  );
+  const answers: string[] = [];
+
+  for (const question of getBtcaQuestions(context)) {
+    const { stdout } = await runCommand(
+      btcaBin,
+      [
+        "ask",
+        "--no-thinking",
+        "--no-tools",
+        "--sub-agent",
+        "-r",
+        context.btcaProjectId,
+        "-q",
+        question,
+      ],
+      { timeoutMs },
+    );
+
+    answers.push(
+      [
+        `Question: ${question}`,
+        `Answer: ${truncate(stdout, MAX_BTCA_ANSWER_CHARS)}`,
+      ].join("\n"),
+    );
+  }
+
+  return answers.join("\n\n");
+}
+
+function buildAcceptanceCriteriaPrompt(
+  context: ContextBundle,
+  btcaContext: string,
+): string {
+  const refinement = context.userPrompt
+    ? `\nUser refinement request:\n${context.userPrompt}\n`
+    : "";
 
   return [
-    "# Acceptance Criteria",
+    "Return the final answer only.",
+    "Do not describe your thinking.",
+    "Do not summarize what you are doing.",
+    "Do not include progress updates.",
+    "Do not include completion messages.",
+    "Do not include logs.",
+    "Do not include markdown fences.",
+    "Your entire response must start with either `Feature:` or `### Scenario:`.",
+    "Use only Gherkin-style acceptance criteria in markdown.",
+    "Use concise scenarios with Given/When/Then steps.",
+    "If you cannot produce acceptance criteria, return exactly: ERROR: Unable to generate acceptance criteria",
     "",
-    "> Generated by the deterministic worker stub with Phase 6-ready context.",
+    "Ticket:",
+    `- Title: ${context.ticketTitle}`,
+    `- Type: ${context.ticketType}`,
+    `- Description: ${context.ticketDescription ?? "No description provided."}`,
+    `- Git remote: ${context.gitRemoteUrl ?? "Not configured."}`,
+    `- Default branch: ${context.defaultBranch ?? "Not configured."}`,
+    refinement.trim(),
     "",
-    "## Ticket Context",
-    `- Ticket title: ${context.ticketTitle}`,
-    descriptionLine,
-    `- Ticket type: ${context.ticketType}`,
-    `- Git remote: ${context.gitRemoteUrl ?? "not configured"}`,
-    `- Default branch: ${context.defaultBranch ?? "not configured"}`,
-    btcaLine,
-    "",
-    "## Scenario 1: Ticket is ready for review",
-    "- Given a queued GENERATE_AC job exists for this ticket",
-    "- When the worker claims and completes the job",
-    "- Then a draft AC artifact is created or updated for the ticket",
-    "",
-    "## Scenario 2: Job metadata is preserved",
-    `- Given job ${context.jobId} is processing attempt ${context.attempt}`,
-    "- When the worker returns a successful result payload",
-    "- Then the job result is stored and visible in the ticket detail UI",
-    "",
-    "## Scenario 3: Prompt context is surfaced",
-    promptLine,
-  ].join("\n");
+    "Bounded repo context:",
+    btcaContext,
+  ]
+    .filter((part) => part.length > 0)
+    .join("\n");
+}
+
+function cleanForgeOutput(output: string): string {
+  const cleaned = output
+    .split(/\r?\n/)
+    .filter((line) => {
+      const trimmed = line.trim();
+
+      return trimmed.length > 0 && !FORGE_LOG_LINE_PATTERN.test(trimmed);
+    })
+    .join("\n")
+    .trim()
+    .replace(/^```(?:markdown|md)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  if (cleaned.length === 0) {
+    throw new Error("ForgeCode returned empty acceptance criteria");
+  }
+
+  if (cleaned === "ERROR: Unable to generate acceptance criteria") {
+    throw new Error(cleaned);
+  }
+
+  if (!GHERKIN_RESPONSE_START_PATTERN.test(cleaned)) {
+    throw new Error(
+      `ForgeCode violated the acceptance criteria output contract. Expected output to start with Feature: or ### Scenario:. Received: ${truncate(output, MAX_ERROR_CHARS)}`,
+    );
+  }
+
+  return cleaned;
+}
+
+async function runForgeMuse(prompt: string): Promise<string> {
+  requireProviderConfig();
+
+  const forgeBin = optionalEnv("FORGE_BIN") ?? "forge";
+  const forgeAgent = optionalEnv("FORGE_AGENT") ?? "muse";
+  const promptFlag = optionalEnv("FORGE_PROMPT_FLAG") ?? "-p";
+  const timeoutMs = Number.parseInt(
+    optionalEnv("FORGE_TIMEOUT_MS") ?? `${DEFAULT_COMMAND_TIMEOUT_MS}`,
+    10,
+  );
+  const { stdout } = await runCommand(
+    forgeBin,
+    ["--agent", forgeAgent, promptFlag, prompt],
+    { timeoutMs },
+  );
+
+  return cleanForgeOutput(stdout);
 }
 
 export async function handleGenerateAc(job: ClaimedJob): Promise<JobHandlerResult> {
-  // Phase 5 stub:
-  // Replace this deterministic payload generator with the real AC pipeline in
-  // Phase 6. The future implementation should build a bounded prompt from the
-  // ticket context, optionally query BTCA for grounded repo context, invoke
-  // Forge/Muse, and return the generated markdown as `result.content`.
-  return {
-    status: "succeeded",
-    result: {
-      content: buildStubContent(job),
-    },
-  };
+  try {
+    const context = buildContextBundle(job);
+    const btcaContext = await getBtcaContext(context);
+    const prompt = buildAcceptanceCriteriaPrompt(context, btcaContext);
+    const content = await runForgeMuse(prompt);
+
+    return {
+      status: "succeeded",
+      result: {
+        content,
+        btcaContextUsed: context.btcaProjectId !== null,
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    return {
+      status: "failed",
+      error: truncate(message, MAX_ERROR_CHARS),
+    };
+  }
 }

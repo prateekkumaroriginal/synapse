@@ -19,7 +19,7 @@ todos:
     status: pending
   - id: phase-6-ac
     content: "Phase 6: AC generation end-to-end (TEST_CASE phase)"
-    status: pending
+    status: completed
   - id: phase-7-plan-code
     content: "Phase 7: Plan & code generation end-to-end"
     status: pending
@@ -373,12 +373,12 @@ flowchart LR
 11. Negative test: run the worker with an invalid `WORKER_SECRET` and verify it receives `401` responses and does not complete queued jobs.
 
 ---
-# Phase 6 — AC Generation End-to-End (TEST_CASE Phase)
+# Phase 6 — AC Generation End-to-End (TEST_CASE Phase) COMPLETE
 
 > **Goal**: Wire the first real AI phase — entering TEST_CASE triggers AC generation, the worker produces acceptance criteria via ForgeCode, and the user can view/approve/regenerate in the UI.
 
 > [!NOTE]
-> **Pre-Phase 6 plumbing is implemented.** `advancePhase` now auto-enqueues the first `GENERATE_AC` job when entering `TEST_CASE`, and both automatic generation and regeneration jobs carry a ticket/project prompt snapshot in `args`. The worker context layer validates and exposes that snapshot while the AC handler still returns deterministic stub content. Remaining Phase 6 work is replacing the stub with the real Forge/BTCA generation pipeline and installing/configuring the runtime toolchain.
+> **This phase is implemented.** `advancePhase` now auto-enqueues the first `GENERATE_AC` job when entering `TEST_CASE`, and both automatic generation and regeneration jobs carry a ticket/project prompt snapshot in `args`. The worker runs a BTCA + ForgeCode/Muse pipeline, stores generated AC through the existing `completeJob` artifact side effect, and the Docker image includes ForgeCode, Bun, and BTCA.
 
 ### Scope
 

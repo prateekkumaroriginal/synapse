@@ -1,0 +1,25 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    env_file:
+      - worker/.env
+    volumes:
+      - forge-config:/root/.forge
+
+  forge-login:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    env_file:
+      - worker/.env
+    volumes:
+      - forge-config:/root/.forge
+    entrypoint: ["forge"]
+    command: ["provider", "login", "google_ai_studio"]
+    stdin_open: true
+    tty: true
+
+volumes:
+  forge-config:

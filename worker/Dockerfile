@@ -1,10 +1,18 @@
 FROM node:22-bookworm-slim
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl git \
+  && apt-get install -y --no-install-recommends bash ca-certificates curl git unzip zsh \
   && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable
+
+ENV BUN_INSTALL=/root/.bun
+ENV PATH="/root/.bun/bin:/root/.forge/bin:/root/forge/bin:/root/.local/bin:${PATH}"
+
+RUN curl -fsSL https://bun.sh/install | bash \
+  && bun add -g btca
+
+RUN curl -fsSL https://forgecode.dev/cli | sh
 
 WORKDIR /app
 

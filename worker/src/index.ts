@@ -23,7 +23,7 @@ function requireEnv(name: string): string {
 
 function loadConfig(): WorkerConfig {
   const pollIntervalMs = Number.parseInt(requireEnv("POLL_INTERVAL_MS"), 10);
-  const claimJobType = requireEnv("CLAIM_JOB_TYPE") as SupportedJobType;
+  const claimJobType = requireEnv("CLAIM_JOB_TYPE");
 
   if (!Number.isFinite(pollIntervalMs) || pollIntervalMs < 0) {
     throw new Error("POLL_INTERVAL_MS must be a non-negative integer");
@@ -90,11 +90,8 @@ async function processJob(job: ClaimedJob): Promise<JobHandlerResult> {
     GENERATE_AC: handleGenerateAc,
   };
 
-  // Phase 5 stub:
-  // Only GENERATE_AC is wired for now so we can exercise the real worker
-  // plumbing against the existing Convex queue and completion endpoints.
-  // Extend this dispatch table as later phases add PLAN, CODE, VALIDATE, and
-  // PR-oriented handlers.
+  // Phase 6 wires GENERATE_AC end-to-end. Extend this dispatch table as later
+  // phases add PLAN, CODE, VALIDATE, and PR-oriented handlers.
   const handler = handlers[job.type as SupportedJobType];
 
   if (!handler) {

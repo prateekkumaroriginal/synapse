@@ -34,6 +34,7 @@ export default defineConfig([
           "./tsconfig.node.json",
           "./tsconfig.app.json",
           "./convex/tsconfig.json",
+          "./worker/tsconfig.json",
         ],
       },
     },
