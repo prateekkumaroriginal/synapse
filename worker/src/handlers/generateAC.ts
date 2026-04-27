@@ -7,7 +7,7 @@ const MAX_BTCA_ANSWER_CHARS = 1_200;
 const MAX_ERROR_CHARS = 4_000;
 const GHERKIN_RESPONSE_START_PATTERN = /^(?:Feature:|#{1,6}\s*Scenario:)/i;
 const FORGE_LOG_LINE_PATTERN =
-  /(?:WARNING: Forge|Migrated \d+ provider|Initialize [0-9a-f-]{36}|\[[0-9:]+\]\s*(?:WARNING|Migrated|Initialize))/i;
+  /(?:WARNING: Forge|Migrated \d+ provider|Initialize [0-9a-f-]{36}|\[[0-9:]+\]\s*(?:WARNING|Migrated|Initialize|Finished))/i;
 
 interface CommandResult {
   stdout: string;

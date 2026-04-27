@@ -146,6 +146,9 @@ async function runWorker(config: WorkerConfig): Promise<void> {
       await completeJob(config, job._id, outcome);
 
       console.log(`[worker] completed job ${job._id} with status ${outcome.status}`);
+      if (outcome.status === "failed") {
+        console.error(`[worker] job ${job._id} failed: ${outcome.error}`);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[worker] loop error: ${message}`);

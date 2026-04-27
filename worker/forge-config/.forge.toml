@@ -1,0 +1,12 @@
+[session]
+provider_id = "google-ai-studio"
+model_id = "gemini-2.5-flash"
+
+[[providers]]
+id = "google-ai-studio"
+api_key_vars = "GEMINI_API_KEY"
+url_param_vars = []
+response_type = "OpenAI"
+url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+auth_methods = ["api_key"]
+models = "https://generativelanguage.googleapis.com/v1beta/openai/models"

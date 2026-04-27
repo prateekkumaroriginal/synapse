@@ -8,6 +8,7 @@ RUN corepack enable
 
 ENV BUN_INSTALL=/root/.bun
 ENV PATH="/root/.bun/bin:/root/.forge/bin:/root/forge/bin:/root/.local/bin:${PATH}"
+ENV FORGE_CONFIG=/app/forge-config
 
 RUN curl -fsSL https://bun.sh/install | bash \
   && bun add -g btca
@@ -17,6 +18,7 @@ RUN curl -fsSL https://forgecode.dev/cli | sh
 WORKDIR /app
 
 COPY worker/package.json worker/tsconfig.json ./
+COPY worker/forge-config ./forge-config
 
 RUN pnpm install --frozen-lockfile=false
 
