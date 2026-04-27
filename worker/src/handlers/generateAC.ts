@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
 import { buildContextBundle, type ContextBundle } from "../contextBundle.js";
+import { getRepoContext } from "../repoContext.js";
 import type { ClaimedJob, JobHandlerResult } from "../types.js";
 
 const DEFAULT_COMMAND_TIMEOUT_MS = 120_000;
-const MAX_BTCA_ANSWER_CHARS = 1_200;
 const MAX_ERROR_CHARS = 4_000;
 const GHERKIN_RESPONSE_START_PATTERN = /^(?:Feature:|#{1,6}\s*Scenario:)/i;
 const FORGE_LOG_LINE_PATTERN =
@@ -105,55 +105,9 @@ async function runCommand(
   });
 }
 
-function getBtcaQuestions(context: ContextBundle): string[] {
-  return [
-    `For ticket "${context.ticketTitle}", which modules or files are most likely relevant? Answer briefly.`,
-    `For ticket "${context.ticketTitle}", what existing tests or acceptance patterns should guide Gherkin criteria? Answer briefly.`,
-  ];
-}
-
-async function getBtcaContext(context: ContextBundle): Promise<string> {
-  if (context.btcaProjectId === null) {
-    return "BTCA context unavailable: no btcaProjectId configured for this project.";
-  }
-
-  const btcaBin = optionalEnv("BTCA_BIN") ?? "btca";
-  const timeoutMs = Number.parseInt(
-    optionalEnv("BTCA_TIMEOUT_MS") ?? `${DEFAULT_COMMAND_TIMEOUT_MS}`,
-    10,
-  );
-  const answers: string[] = [];
-
-  for (const question of getBtcaQuestions(context)) {
-    const { stdout } = await runCommand(
-      btcaBin,
-      [
-        "ask",
-        "--no-thinking",
-        "--no-tools",
-        "--sub-agent",
-        "-r",
-        context.btcaProjectId,
-        "-q",
-        question,
-      ],
-      { timeoutMs },
-    );
-
-    answers.push(
-      [
-        `Question: ${question}`,
-        `Answer: ${truncate(stdout, MAX_BTCA_ANSWER_CHARS)}`,
-      ].join("\n"),
-    );
-  }
-
-  return answers.join("\n\n");
-}
-
 function buildAcceptanceCriteriaPrompt(
   context: ContextBundle,
-  btcaContext: string,
+  repoContext: string,
 ): string {
   const refinement = context.userPrompt
     ? `\nUser refinement request:\n${context.userPrompt}\n`
@@ -170,6 +124,8 @@ function buildAcceptanceCriteriaPrompt(
     "Your entire response must start with either `Feature:` or `### Scenario:`.",
     "Use only Gherkin-style acceptance criteria in markdown.",
     "Use concise scenarios with Given/When/Then steps.",
+    "Use repository context only when it is directly relevant to the ticket.",
+    "Do not mention unrelated implementation details.",
     "If you cannot produce acceptance criteria, return exactly: ERROR: Unable to generate acceptance criteria",
     "",
     "Ticket:",
@@ -181,7 +137,7 @@ function buildAcceptanceCriteriaPrompt(
     refinement.trim(),
     "",
     "Bounded repo context:",
-    btcaContext,
+    repoContext,
   ]
     .filter((part) => part.length > 0)
     .join("\n");
@@ -240,15 +196,16 @@ async function runForgeMuse(prompt: string): Promise<string> {
 export async function handleGenerateAc(job: ClaimedJob): Promise<JobHandlerResult> {
   try {
     const context = buildContextBundle(job);
-    const btcaContext = await getBtcaContext(context);
-    const prompt = buildAcceptanceCriteriaPrompt(context, btcaContext);
+    const repoContext = await getRepoContext(context);
+    const prompt = buildAcceptanceCriteriaPrompt(context, repoContext.summary);
     const content = await runForgeMuse(prompt);
 
     return {
       status: "succeeded",
       result: {
         content,
-        btcaContextUsed: context.btcaProjectId !== null,
+        repoContextUsed: repoContext.used,
+        repoContextMetadata: repoContext.metadata,
       },
     };
   } catch (error) {

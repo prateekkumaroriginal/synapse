@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { projectFormSchema } from "./validations";
+import { projectFormSchema, projectSettingsFormSchema } from "./validations";
 import { assertProjectOwner, hasProjectAccess } from "./utils/projectAccess";
 
 export const getProject = query({
@@ -101,6 +101,8 @@ export const update = mutation({
     projectId: v.id("projects"),
     name: v.string(),
     description: v.optional(v.string()),
+    gitRemoteUrl: v.optional(v.string()),
+    defaultBranch: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<void> => {
     const userId: Id<"users"> | null = await getAuthUserId(ctx);
@@ -109,14 +111,18 @@ export const update = mutation({
     }
     await assertProjectOwner(ctx, args.projectId, userId);
 
-    const parsed = projectFormSchema.parse({
+    const parsed = projectSettingsFormSchema.parse({
       name: args.name,
       description: args.description ?? "",
+      gitRemoteUrl: args.gitRemoteUrl,
+      defaultBranch: args.defaultBranch,
     });
 
-    await ctx.db.patch(args.projectId, {
+    await ctx.db.patch("projects", args.projectId, {
       name: parsed.name,
       description: parsed.description,
+      gitRemoteUrl: parsed.gitRemoteUrl,
+      defaultBranch: parsed.defaultBranch,
     });
   },
 });
@@ -131,7 +137,7 @@ export const archive = mutation({
       throw new Error("Not authenticated");
     }
     await assertProjectOwner(ctx, args.projectId, userId);
-    await ctx.db.patch(args.projectId, { isArchived: true });
+    await ctx.db.patch("projects", args.projectId, { isArchived: true });
   },
 });
 
@@ -145,7 +151,7 @@ export const unarchive = mutation({
       throw new Error("Not authenticated");
     }
     await assertProjectOwner(ctx, args.projectId, userId);
-    await ctx.db.patch(args.projectId, { isArchived: false });
+    await ctx.db.patch("projects", args.projectId, { isArchived: false });
   },
 });
 
@@ -172,7 +178,7 @@ export const deleteProject = mutation({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
     for (const t of tickets) {
-      await ctx.db.delete(t._id);
+      await ctx.db.delete("tickets", t._id);
     }
 
     const members = await ctx.db
@@ -180,7 +186,7 @@ export const deleteProject = mutation({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
     for (const m of members) {
-      await ctx.db.delete(m._id);
+      await ctx.db.delete("projectMembers", m._id);
     }
 
     const resources = await ctx.db
@@ -188,9 +194,9 @@ export const deleteProject = mutation({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
     for (const r of resources) {
-      await ctx.db.delete(r._id);
+      await ctx.db.delete("projectResources", r._id);
     }
 
-    await ctx.db.delete(args.projectId);
+    await ctx.db.delete("projects", args.projectId);
   },
 });

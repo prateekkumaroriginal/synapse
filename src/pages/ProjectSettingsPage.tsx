@@ -6,8 +6,9 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  projectFormSchema,
-  type ProjectFormValues,
+  projectSettingsFormSchema,
+  type ProjectSettingsFormValues,
+  type ProjectSettingsParsed,
 } from "../../convex/validations";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -66,20 +67,26 @@ export default function ProjectSettingsPage() {
   >(null);
   const [dangerPending, setDangerPending] = useState(false);
 
-  const form = useForm<ProjectFormValues>({
-    resolver: zodResolver(projectFormSchema),
+  const form = useForm<ProjectSettingsFormValues, unknown, ProjectSettingsParsed>({
+    resolver: zodResolver(projectSettingsFormSchema),
     mode: "onTouched",
     values: {
       name: project?.name || "",
       description: project?.description || "",
+      gitRemoteUrl: project?.gitRemoteUrl || "",
+      defaultBranch: project?.defaultBranch || "",
     },
   });
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting, isDirty },
   } = form;
+  const gitRemoteUrl = watch("gitRemoteUrl");
+  const hasGitRemoteUrl =
+    typeof gitRemoteUrl === "string" && gitRemoteUrl.trim().length > 0;
 
   if (projectId === null || project === null) {
     return (
@@ -112,6 +119,8 @@ export default function ProjectSettingsPage() {
         projectId,
         name: data.name,
         description: data.description,
+        gitRemoteUrl: data.gitRemoteUrl,
+        defaultBranch: data.defaultBranch,
       });
       toast.success("Project updated");
     } catch (err: unknown) {
@@ -127,11 +136,11 @@ export default function ProjectSettingsPage() {
       if (dangerAction === "Archive") {
         await archiveProject({ projectId });
         toast.success("Project archived");
-        navigate("/projects/archived");
+        void navigate("/projects/archived");
       } else if (dangerAction === "Delete") {
         await deleteProject({ projectId });
         toast.success("Project deleted");
-        navigate("/");
+        void navigate("/");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Action failed";
@@ -146,7 +155,7 @@ export default function ProjectSettingsPage() {
     try {
       await unarchiveProject({ projectId });
       toast.success("Project restored");
-      navigate(`/projects/${projectId}`);
+      void navigate(`/projects/${projectId}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Action failed";
       toast.error(msg);
@@ -218,6 +227,48 @@ export default function ProjectSettingsPage() {
                       <FieldError errors={[errors.description]} />
                     </FieldContent>
                   </Field>
+                  <Field data-invalid={!!errors.gitRemoteUrl}>
+                    <FieldLabel htmlFor="settings-git-remote-url">
+                      Git repository URL
+                    </FieldLabel>
+                    <FieldContent>
+                      <Input
+                        id="settings-git-remote-url"
+                        autoComplete="off"
+                        placeholder="https://github.com/org/repo"
+                        disabled={isSubmitting}
+                        aria-invalid={!!errors.gitRemoteUrl}
+                        {...register("gitRemoteUrl", {
+                          setValueAs: (value: unknown) =>
+                            typeof value === "string" && value.trim().length > 0
+                              ? value.trim()
+                              : undefined,
+                        })}
+                      />
+                      <FieldError errors={[errors.gitRemoteUrl]} />
+                    </FieldContent>
+                  </Field>
+                  <Field data-invalid={!!errors.defaultBranch}>
+                    <FieldLabel htmlFor="settings-default-branch">
+                      Default branch
+                    </FieldLabel>
+                    <FieldContent>
+                      <Input
+                        id="settings-default-branch"
+                        autoComplete="off"
+                        placeholder="main"
+                        disabled={isSubmitting || !hasGitRemoteUrl}
+                        aria-invalid={!!errors.defaultBranch}
+                        {...register("defaultBranch", {
+                          setValueAs: (value: unknown) =>
+                            typeof value === "string" && value.trim().length > 0
+                              ? value.trim()
+                              : undefined,
+                        })}
+                      />
+                      <FieldError errors={[errors.defaultBranch]} />
+                    </FieldContent>
+                  </Field>
                 </FieldGroup>
                 <div className="flex justify-end">
                   <Button type="submit" disabled={isSubmitting || !isDirty}>
@@ -235,6 +286,18 @@ export default function ProjectSettingsPage() {
                   <div className="flex flex-col gap-1">
                     <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
                     <p className="text-base">{project.description}</p>
+                  </div>
+                )}
+                {project.gitRemoteUrl && (
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-sm font-medium text-muted-foreground">Git repository URL</h3>
+                    <p className="break-all text-base">{project.gitRemoteUrl}</p>
+                  </div>
+                )}
+                {project.gitRemoteUrl && (
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-sm font-medium text-muted-foreground">Default branch</h3>
+                    <p className="text-base">{project.defaultBranch ?? "main"}</p>
                   </div>
                 )}
               </div>

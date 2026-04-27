@@ -46,7 +46,7 @@ export const jobType = v.union(
   ...JOB_TYPES.map((s) => v.literal(s))
 );
 
-const { users, ...otherAuthTables } = authTables;
+const { users: _users, ...otherAuthTables } = authTables;
 
 export default defineSchema({
   ...otherAuthTables,
@@ -67,10 +67,8 @@ export default defineSchema({
     description: v.optional(v.string()),
     ownerId: v.id("users"),
     isArchived: v.boolean(),
-    // Phase 1: git / BTCA integration fields
     gitRemoteUrl: v.optional(v.string()),
     defaultBranch: v.optional(v.string()),
-    btcaProjectId: v.optional(v.string()),
   }).index("by_owner", ["ownerId"]),
   projectMembers: defineTable({
     projectId: v.id("projects"),
