@@ -116,13 +116,13 @@
     --sidebar-ring: oklch(0.72 0.14 28);
 }
 
-html[data-theme-transition="shockwave"]::view-transition-old(root),
-html[data-theme-transition="shockwave"]::view-transition-new(root) {
+html[data-theme-transition]::view-transition-old(root),
+html[data-theme-transition]::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
 }
 
-html[data-theme-transition="shockwave"]::view-transition-image-pair(root) {
+html[data-theme-transition]::view-transition-image-pair(root) {
   isolation: auto;
 }
 

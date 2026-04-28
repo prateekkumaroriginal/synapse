@@ -57,8 +57,8 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-function animateThemeShockwave(transition: ThemeViewTransition): void {
-  void transition.ready
+function animateThemeShockwave(viewTransition: ThemeViewTransition): void {
+  void viewTransition.ready
     .then(() => {
       const x = window.innerWidth / 2;
       const y = 0;
@@ -82,7 +82,7 @@ function animateThemeShockwave(transition: ThemeViewTransition): void {
       );
     })
     .catch(() => {
-      transition.skipTransition();
+      viewTransition.skipTransition();
     });
 }
 
@@ -91,10 +91,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     typeof window === "undefined" ? "system" : readStoredPreference(),
   );
 
-  const resolved = useMemo(
-    () => resolveClass(preference),
-    [preference],
-  );
+  const resolved = useMemo(() => resolveClass(preference), [preference]);
 
   useEffect(() => {
     applyDomTheme(resolved);
@@ -127,19 +124,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
 
     const viewTransitionDocument = document as DocumentWithViewTransition;
-    if (
-      !viewTransitionDocument.startViewTransition ||
-      prefersReducedMotion()
-    ) {
+    if (!viewTransitionDocument.startViewTransition || prefersReducedMotion()) {
       updateTheme();
       return;
     }
 
     const root = document.documentElement;
-    root.dataset.themeTransition = "shockwave";
-    const transition = viewTransitionDocument.startViewTransition(updateTheme);
-    animateThemeShockwave(transition);
-    void transition.finished
+    root.dataset.themeTransition = "top-shockwave";
+    const viewTransition =
+      viewTransitionDocument.startViewTransition(updateTheme);
+    animateThemeShockwave(viewTransition);
+    void viewTransition.finished
       .finally(() => {
         delete root.dataset.themeTransition;
       })
