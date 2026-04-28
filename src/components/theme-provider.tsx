@@ -5,6 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import {
   ThemeContext,
   type ThemeContextValue,
@@ -12,6 +13,17 @@ import {
 } from "./theme-context";
 
 const STORAGE_KEY = "synapse-ui-theme";
+const SHOCKWAVE_DURATION_MS = 720;
+
+type ThemeViewTransition = {
+  ready: Promise<void>;
+  finished: Promise<void>;
+  skipTransition: () => void;
+};
+
+type DocumentWithViewTransition = Document & {
+  startViewTransition?: (updateCallback: () => void) => ThemeViewTransition;
+};
 
 function readStoredPreference(): ThemePreference {
   try {
@@ -41,6 +53,39 @@ function applyDomTheme(resolved: "light" | "dark"): void {
   root.classList.toggle("dark", resolved === "dark");
 }
 
+function prefersReducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function animateThemeShockwave(transition: ThemeViewTransition): void {
+  void transition.ready
+    .then(() => {
+      const x = window.innerWidth / 2;
+      const y = 0;
+      const endRadius = Math.hypot(
+        Math.max(x, window.innerWidth - x),
+        Math.max(y, window.innerHeight - y),
+      );
+
+      document.documentElement.animate(
+        {
+          clipPath: [
+            `circle(0px at ${x}px ${y}px)`,
+            `circle(${endRadius}px at ${x}px ${y}px)`,
+          ],
+        },
+        {
+          duration: SHOCKWAVE_DURATION_MS,
+          easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+          pseudoElement: "::view-transition-new(root)",
+        },
+      );
+    })
+    .catch(() => {
+      transition.skipTransition();
+    });
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>(() =>
     typeof window === "undefined" ? "system" : readStoredPreference(),
@@ -68,13 +113,39 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [preference]);
 
   const setPreference = useCallback((next: ThemePreference) => {
-    setPreferenceState(next);
+    const updateTheme = (): void => {
+      flushSync(() => {
+        setPreferenceState(next);
+      });
+      applyDomTheme(resolveClass(next));
+    };
+
     try {
       localStorage.setItem(STORAGE_KEY, next);
     } catch {
       /* ignore */
     }
-    applyDomTheme(resolveClass(next));
+
+    const viewTransitionDocument = document as DocumentWithViewTransition;
+    if (
+      !viewTransitionDocument.startViewTransition ||
+      prefersReducedMotion()
+    ) {
+      updateTheme();
+      return;
+    }
+
+    const root = document.documentElement;
+    root.dataset.themeTransition = "shockwave";
+    const transition = viewTransitionDocument.startViewTransition(updateTheme);
+    animateThemeShockwave(transition);
+    void transition.finished
+      .finally(() => {
+        delete root.dataset.themeTransition;
+      })
+      .catch(() => {
+        delete root.dataset.themeTransition;
+      });
   }, []);
 
   const cyclePreference = useCallback(() => {
