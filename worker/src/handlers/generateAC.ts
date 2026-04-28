@@ -1,117 +1,24 @@
-import { spawn } from "node:child_process";
 import { buildContextBundle, type ContextBundle } from "../contextBundle.js";
-import { getRepoContext } from "../repoContext.js";
+import { writeForgeDebugArtifacts } from "../debugArtifacts.js";
+import { runForgeAgentWithOutput, truncate } from "../forge.js";
+import { prepareForgeWorkspace, type ForgeWorkspace } from "../forgeWorkspace.js";
 import type { ClaimedJob, JobHandlerResult } from "../types.js";
 
-const DEFAULT_COMMAND_TIMEOUT_MS = 120_000;
 const MAX_ERROR_CHARS = 4_000;
 const GHERKIN_RESPONSE_START_PATTERN = /^(?:Feature:|#{1,6}\s*Scenario:)/i;
-const FORGE_LOG_LINE_PATTERN =
-  /(?:WARNING: Forge|Migrated \d+ provider|Initialize [0-9a-f-]{36}|\[[0-9:]+\]\s*(?:WARNING|Migrated|Initialize|Finished))/i;
-
-interface CommandResult {
-  stdout: string;
-  stderr: string;
-}
-
-interface RunCommandOptions {
-  input?: string;
-  timeoutMs?: number;
-}
-
-function optionalEnv(name: string): string | null {
-  const value = process.env[name];
-
-  return value && value.trim().length > 0 ? value.trim() : null;
-}
-
-function requireProviderConfig(): void {
-  const providerKeys = [
-    "ANTHROPIC_API_KEY",
-    "GEMINI_API_KEY",
-    "GOOGLE_AI_STUDIO_API_KEY",
-    "OPENAI_API_KEY",
-    "OPENROUTER_API_KEY",
-    "FORGE_PROVIDER_API_KEY",
-  ];
-
-  if (providerKeys.some((key) => optionalEnv(key) !== null)) {
-    return;
-  }
-
-  throw new Error(
-    `Missing provider API key. Set one of ${providerKeys.join(", ")} for non-interactive ForgeCode execution.`,
-  );
-}
-
-function truncate(value: string, maxChars: number): string {
-  const normalized = value.trim();
-
-  if (normalized.length <= maxChars) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, maxChars)}\n[truncated]`;
-}
-
-async function runCommand(
-  command: string,
-  args: string[],
-  options: RunCommandOptions = {},
-): Promise<CommandResult> {
-  const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
-
-  return await new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      env: process.env,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    const timeout = setTimeout(() => {
-      child.kill("SIGTERM");
-      reject(new Error(`${command} timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-    const stdoutChunks: Buffer[] = [];
-    const stderrChunks: Buffer[] = [];
-
-    child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
-    child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
-    child.on("error", (error) => {
-      clearTimeout(timeout);
-      reject(error);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timeout);
-
-      const stdout = Buffer.concat(stdoutChunks).toString("utf8");
-      const stderr = Buffer.concat(stderrChunks).toString("utf8");
-
-      if (code !== 0) {
-        reject(
-          new Error(
-            `${command} exited with ${code ?? "unknown"}: ${truncate(stderr || stdout, MAX_ERROR_CHARS)}`,
-          ),
-        );
-        return;
-      }
-
-      resolve({ stdout, stderr });
-    });
-
-    if (options.input) {
-      child.stdin.write(options.input);
-    }
-
-    child.stdin.end();
-  });
-}
+const AC_START_MARKER = "[AC_START]";
+const AC_END_MARKER = "[AC_END]";
 
 function buildAcceptanceCriteriaPrompt(
   context: ContextBundle,
-  repoContext: string,
+  workspace: ForgeWorkspace,
 ): string {
   const refinement = context.userPrompt
     ? `\nUser refinement request:\n${context.userPrompt}\n`
     : "";
+  const repoInstruction = workspace.repoUsed
+    ? "A repository is available in the current working directory. Inspect it directly as needed."
+    : "No repository checkout is available. Use only the ticket context below.";
 
   return [
     "Return the final answer only.",
@@ -121,10 +28,13 @@ function buildAcceptanceCriteriaPrompt(
     "Do not include completion messages.",
     "Do not include logs.",
     "Do not include markdown fences.",
-    "Your entire response must start with either `Feature:` or `### Scenario:`.",
+    `Put the acceptance criteria that should be saved between ${AC_START_MARKER} and ${AC_END_MARKER}.`,
+    `Anything outside ${AC_START_MARKER} and ${AC_END_MARKER} will be ignored.`,
+    `Use this exact structure: ${AC_START_MARKER}\\nFeature: ...\\n${AC_END_MARKER}`,
     "Use only Gherkin-style acceptance criteria in markdown.",
     "Use concise scenarios with Given/When/Then steps.",
-    "Use repository context only when it is directly relevant to the ticket.",
+    repoInstruction,
+    "Use repository details only when directly relevant to the ticket.",
     "Do not mention unrelated implementation details.",
     "If you cannot produce acceptance criteria, return exactly: ERROR: Unable to generate acceptance criteria",
     "",
@@ -135,27 +45,31 @@ function buildAcceptanceCriteriaPrompt(
     `- Git remote: ${context.gitRemoteUrl ?? "Not configured."}`,
     `- Default branch: ${context.defaultBranch ?? "Not configured."}`,
     refinement.trim(),
-    "",
-    "Bounded repo context:",
-    repoContext,
   ]
     .filter((part) => part.length > 0)
     .join("\n");
 }
 
-function cleanForgeOutput(output: string): string {
-  const cleaned = output
-    .split(/\r?\n/)
-    .filter((line) => {
-      const trimmed = line.trim();
+function extractMarkedAcceptanceCriteria(output: string): string {
+  const startIndex = output.indexOf(AC_START_MARKER);
+  const endIndex = output.indexOf(AC_END_MARKER);
 
-      return trimmed.length > 0 && !FORGE_LOG_LINE_PATTERN.test(trimmed);
-    })
-    .join("\n")
+  if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
+    throw new Error(
+      `ForgeCode did not return acceptance criteria between ${AC_START_MARKER} and ${AC_END_MARKER}. Received: ${truncate(output, MAX_ERROR_CHARS)}`,
+    );
+  }
+
+  return output
+    .slice(startIndex + AC_START_MARKER.length, endIndex)
     .trim()
-    .replace(/^```(?:markdown|md)?\s*/i, "")
+    .replace(/^```(?:gherkin|markdown|md)?\s*/i, "")
     .replace(/\s*```$/i, "")
     .trim();
+}
+
+function cleanAcceptanceCriteriaOutput(output: string): string {
+  const cleaned = extractMarkedAcceptanceCriteria(output);
 
   if (cleaned.length === 0) {
     throw new Error("ForgeCode returned empty acceptance criteria");
@@ -174,38 +88,44 @@ function cleanForgeOutput(output: string): string {
   return cleaned;
 }
 
-async function runForgeMuse(prompt: string): Promise<string> {
-  requireProviderConfig();
-
-  const forgeBin = optionalEnv("FORGE_BIN") ?? "forge";
-  const forgeAgent = optionalEnv("FORGE_AGENT") ?? "muse";
-  const promptFlag = optionalEnv("FORGE_PROMPT_FLAG") ?? "-p";
-  const timeoutMs = Number.parseInt(
-    optionalEnv("FORGE_TIMEOUT_MS") ?? `${DEFAULT_COMMAND_TIMEOUT_MS}`,
-    10,
-  );
-  const { stdout } = await runCommand(
-    forgeBin,
-    ["--agent", forgeAgent, promptFlag, prompt],
-    { timeoutMs },
-  );
-
-  return cleanForgeOutput(stdout);
-}
-
 export async function handleGenerateAc(job: ClaimedJob): Promise<JobHandlerResult> {
+  const context = buildContextBundle(job);
+  const workspace = await prepareForgeWorkspace({
+    jobId: job._id,
+    ticketId: job.ticketId,
+    gitRemoteUrl: context.gitRemoteUrl,
+    defaultBranch: context.defaultBranch,
+    purpose: "ac",
+  });
+
   try {
-    const context = buildContextBundle(job);
-    const repoContext = await getRepoContext(context);
-    const prompt = buildAcceptanceCriteriaPrompt(context, repoContext.summary);
-    const content = await runForgeMuse(prompt);
+    const prompt = buildAcceptanceCriteriaPrompt(context, workspace);
+    const { rawOutput, content } = await runForgeAgentWithOutput(
+      "muse",
+      prompt,
+      workspace.cwd,
+    );
+    const cleaned = cleanAcceptanceCriteriaOutput(content);
+
+    await writeForgeDebugArtifacts({
+      purpose: "ac",
+      jobId: job._id,
+      ticketId: job.ticketId,
+      prompt,
+      rawOutput,
+      cleanedOutput: cleaned,
+      metadata: {
+        repoUsed: workspace.repoUsed,
+        workspace: workspace.metadata,
+      },
+    });
 
     return {
       status: "succeeded",
       result: {
-        content,
-        repoContextUsed: repoContext.used,
-        repoContextMetadata: repoContext.metadata,
+        content: cleaned,
+        repoContextUsed: workspace.repoUsed,
+        repoContextMetadata: workspace.metadata,
       },
     };
   } catch (error) {
@@ -215,5 +135,7 @@ export async function handleGenerateAc(job: ClaimedJob): Promise<JobHandlerResul
       status: "failed",
       error: truncate(message, MAX_ERROR_CHARS),
     };
+  } finally {
+    await workspace.cleanup();
   }
 }

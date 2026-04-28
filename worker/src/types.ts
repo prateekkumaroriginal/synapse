@@ -26,7 +26,43 @@ export interface GenerateAcJobArgs {
   userPrompt: string;
 }
 
-export type JobArgs = GenerateAcJobArgs;
+export interface GeneratePlanJobArgs {
+  phase: "PLANNING";
+  ticketTitle: string;
+  ticketDescription: string | null;
+  ticketType: "TASK" | "BUG";
+  gitRemoteUrl: string | null;
+  defaultBranch: string | null;
+  userPrompt: string;
+  approvedAcContent: string;
+}
+
+export interface GenerateCodeJobArgs {
+  phase: "CODE_GENERATION";
+  ticketTitle: string;
+  ticketDescription: string | null;
+  ticketType: "TASK" | "BUG";
+  gitRemoteUrl: string | null;
+  defaultBranch: string | null;
+  userPrompt: string;
+  approvedPlanContent: string;
+}
+
+export interface ValidateJobArgs {
+  codeJobId: string;
+  branchName: string | null;
+  commitSha: string | null;
+  changedFiles: string[];
+  gitRemoteUrl: string | null;
+  defaultBranch: string | null;
+  workspacePath?: string | null;
+}
+
+export type JobArgs =
+  | GenerateAcJobArgs
+  | GeneratePlanJobArgs
+  | GenerateCodeJobArgs
+  | ValidateJobArgs;
 
 export interface ClaimedJob {
   _id: string;

@@ -196,11 +196,13 @@ export function PhaseRail({ ticket, selectedPhase, setSelectedPhase }: PhaseRail
                 </TooltipContent>
               </Tooltip>
             ) : (
-              <Button
-                className="flex-1"
-                disabled={!canAdvance}
-                onClick={handleAdvance}
-              >
+	              <Button
+	                className="flex-1"
+	                disabled={!canAdvance}
+	                onClick={() => {
+                    void handleAdvance();
+                  }}
+	              >
                 Advance
                 <ArrowRight className="size-4" />
               </Button>
@@ -221,7 +223,12 @@ export function PhaseRail({ ticket, selectedPhase, setSelectedPhase }: PhaseRail
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRewind} className="bg-amber-600 hover:bg-amber-700">
+            <AlertDialogAction
+              onClick={() => {
+                void confirmRewind();
+              }}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
               Confirm Rewind
             </AlertDialogAction>
           </AlertDialogFooter>

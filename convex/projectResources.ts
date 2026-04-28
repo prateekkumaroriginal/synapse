@@ -71,7 +71,7 @@ export const update = mutation({
       domain: args.domain,
     });
 
-    await ctx.db.patch(args.resourceId, {
+    await ctx.db.patch("projectResources", args.resourceId, {
       url: parsed.url,
       label: parsed.label,
       domain: parsed.domain,
@@ -92,6 +92,6 @@ export const remove = mutation({
 
     await assertProjectOwner(ctx, resource.projectId, userId);
 
-    await ctx.db.delete(resourceId);
+    await ctx.db.delete("projectResources", resourceId);
   },
 });

@@ -9,6 +9,8 @@ export interface ContextBundle {
   gitRemoteUrl: string | null;
   defaultBranch: string | null;
   userPrompt: string | null;
+  previousContentLabel: string | null;
+  previousContent: string | null;
 }
 
 function normalizeString(value: unknown): string | null {
@@ -16,20 +18,21 @@ function normalizeString(value: unknown): string | null {
 }
 
 function readGenerateAcArgs(args: ClaimedJob["args"]): GenerateAcJobArgs {
-  const ticketTitle = normalizeString(args.ticketTitle);
+  const raw = args as Partial<GenerateAcJobArgs>;
+  const ticketTitle = normalizeString(raw.ticketTitle);
 
-  if (ticketTitle === null || (args.ticketType !== "TASK" && args.ticketType !== "BUG")) {
+  if (ticketTitle === null || (raw.ticketType !== "TASK" && raw.ticketType !== "BUG")) {
     throw new Error("GENERATE_AC job args must include ticketTitle and ticketType");
   }
 
   return {
     phase: "TEST_CASE",
     ticketTitle,
-    ticketDescription: normalizeString(args.ticketDescription),
-    ticketType: args.ticketType,
-    gitRemoteUrl: normalizeString(args.gitRemoteUrl),
-    defaultBranch: normalizeString(args.defaultBranch),
-    userPrompt: normalizeString(args.userPrompt) ?? "",
+    ticketDescription: normalizeString(raw.ticketDescription),
+    ticketType: raw.ticketType,
+    gitRemoteUrl: normalizeString(raw.gitRemoteUrl),
+    defaultBranch: normalizeString(raw.defaultBranch),
+    userPrompt: normalizeString(raw.userPrompt) ?? "",
   };
 }
 
@@ -45,5 +48,7 @@ export function buildContextBundle(job: ClaimedJob): ContextBundle {
     gitRemoteUrl: args.gitRemoteUrl,
     defaultBranch: args.defaultBranch,
     userPrompt: normalizeString(args.userPrompt),
+    previousContentLabel: null,
+    previousContent: null,
   };
 }

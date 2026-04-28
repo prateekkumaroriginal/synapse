@@ -69,7 +69,12 @@ export function ConfirmDangerDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(onConfirm)} className="py-4 flex flex-col gap-4">
+        <form
+          onSubmit={(event) => {
+            void form.handleSubmit(onConfirm)(event);
+          }}
+          className="py-4 flex flex-col gap-4"
+        >
           <Input
             autoFocus
             {...form.register("confirmText")}

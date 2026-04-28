@@ -29,6 +29,20 @@ export type TicketStatus = (typeof TICKET_STATUSES)[number];
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 export type JobType = (typeof JOB_TYPES)[number];
 
+export const VALIDATION_STEP_STATUSES = [
+  "PASSED",
+  "FAILED",
+  "SKIPPED",
+] as const;
+
+export const VALIDATION_OVERALL_STATUSES = [
+  "PASSED",
+  "FAILED",
+] as const;
+
+export type ValidationStepStatus = (typeof VALIDATION_STEP_STATUSES)[number];
+export type ValidationOverallStatus = (typeof VALIDATION_OVERALL_STATUSES)[number];
+
 export const ticketStatus = v.union(
   ...TICKET_STATUSES.map((s) => v.literal(s))
 );
@@ -44,6 +58,14 @@ export const artifactType = v.union(
 
 export const jobType = v.union(
   ...JOB_TYPES.map((s) => v.literal(s))
+);
+
+export const validationStepStatus = v.union(
+  ...VALIDATION_STEP_STATUSES.map((s) => v.literal(s))
+);
+
+export const validationOverallStatus = v.union(
+  ...VALIDATION_OVERALL_STATUSES.map((s) => v.literal(s))
 );
 
 const { users: _users, ...otherAuthTables } = authTables;
@@ -128,5 +150,26 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_ticketId", ["ticketId"])
     .index("by_projectId", ["projectId"])
-    .index("by_idempotencyKey", ["idempotencyKey"])
+    .index("by_idempotencyKey", ["idempotencyKey"]),
+
+  validationRuns: defineTable({
+    jobId: v.id("asyncJobs"),
+    ticketId: v.id("tickets"),
+    codeJobId: v.optional(v.id("asyncJobs")),
+    commitSha: v.optional(v.string()),
+    branchName: v.optional(v.string()),
+    steps: v.array(v.object({
+      name: v.string(),
+      command: v.optional(v.string()),
+      status: validationStepStatus,
+      startedAt: v.number(),
+      finishedAt: v.number(),
+      logExcerpt: v.optional(v.string()),
+    })),
+    overallStatus: validationOverallStatus,
+    startedAt: v.number(),
+    finishedAt: v.number(),
+  })
+    .index("by_ticketId", ["ticketId"])
+    .index("by_jobId", ["jobId"])
 });

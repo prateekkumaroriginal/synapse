@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -7,24 +7,18 @@ import { TicketStatus } from "../../convex/schema";
 import { PhaseRail } from "../components/tickets/PhaseRail";
 import { ArtifactPanel } from "../components/tickets/ArtifactPanel";
 import { JobStatusPanel } from "../components/tickets/JobStatusPanel";
+import { ValidationRunsPanel } from "../components/tickets/ValidationRunsPanel";
 import { Loader2 } from "lucide-react";
 
 export function TicketDetailPage() {
   const { projectId, ticketId } = useParams<{ projectId: string; ticketId: string }>();
-  const [selectedPhase, setSelectedPhase] = useState<TicketStatus | null>(null);
+  const [selectedPhaseOverride, setSelectedPhaseOverride] = useState<TicketStatus | null>(null);
 
   const parsedProjectId = projectId as Id<"projects">;
   const parsedTicketId = ticketId as Id<"tickets">;
 
   const project = useQuery(api.projects.getProject, { projectId: parsedProjectId });
   const ticket = useQuery(api.tickets.get, { ticketId: parsedTicketId });
-
-  // Sync selected phase to active ticket phase on load
-  useEffect(() => {
-    if (ticket && selectedPhase === null) {
-      setSelectedPhase(ticket.status);
-    }
-  }, [ticket, selectedPhase]);
 
   if (project === undefined || ticket === undefined) {
     return (
@@ -46,6 +40,8 @@ export function TicketDetailPage() {
     );
   }
 
+  const selectedPhase = selectedPhaseOverride ?? ticket.status;
+
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)] bg-background">
 
@@ -55,29 +51,26 @@ export function TicketDetailPage() {
 
           {/* Left Column: Phase Rail */}
           <div className="xl:col-span-3">
-            {selectedPhase && (
-              <PhaseRail
-                ticket={ticket}
-                selectedPhase={selectedPhase}
-                setSelectedPhase={setSelectedPhase}
-              />
-            )}
+            <PhaseRail
+              ticket={ticket}
+              selectedPhase={selectedPhase}
+              setSelectedPhase={setSelectedPhaseOverride}
+            />
           </div>
 
           {/* Center Column: Artifact Panel */}
           <div className="xl:col-span-6">
-            {selectedPhase && (
-              <ArtifactPanel
-                ticketId={parsedTicketId}
-                selectedPhase={selectedPhase}
-                currentTicketPhase={ticket.status}
-              />
-            )}
+            <ArtifactPanel
+              ticketId={parsedTicketId}
+              selectedPhase={selectedPhase}
+              currentTicketPhase={ticket.status}
+            />
           </div>
 
           {/* Right Column: Job Status Sidebar */}
-          <div className="xl:col-span-3">
+          <div className="flex flex-col gap-6 xl:col-span-3">
             <JobStatusPanel ticketId={parsedTicketId} />
+            <ValidationRunsPanel ticketId={parsedTicketId} />
           </div>
 
         </div>

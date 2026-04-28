@@ -1,14 +1,21 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { handleGenerateAc } from "./handlers/generateAC.js";
+import { handleGenerateCode } from "./handlers/generateCode.js";
+import { handleGeneratePlan } from "./handlers/generatePlan.js";
+import { handleValidate } from "./handlers/validate.js";
 import type { ClaimedJob, JobHandlerResult } from "./types.js";
 
-type SupportedJobType = "GENERATE_AC";
+type SupportedJobType =
+  | "GENERATE_AC"
+  | "GENERATE_PLAN"
+  | "GENERATE_CODE"
+  | "VALIDATE";
 
 interface WorkerConfig {
   convexUrl: string;
   workerSecret: string;
   pollIntervalMs: number;
-  claimJobType: SupportedJobType;
+  claimJobType: SupportedJobType | "ALL";
 }
 
 function requireEnv(name: string): string {
@@ -29,7 +36,13 @@ function loadConfig(): WorkerConfig {
     throw new Error("POLL_INTERVAL_MS must be a non-negative integer");
   }
 
-  if (claimJobType !== "GENERATE_AC") {
+  if (
+    claimJobType !== "GENERATE_AC" &&
+    claimJobType !== "GENERATE_PLAN" &&
+    claimJobType !== "GENERATE_CODE" &&
+    claimJobType !== "VALIDATE" &&
+    claimJobType !== "ALL"
+  ) {
     throw new Error(`Unsupported CLAIM_JOB_TYPE: ${claimJobType}`);
   }
 
@@ -52,7 +65,9 @@ async function claimNextJob(config: WorkerConfig): Promise<ClaimedJob | null> {
       "Authorization": `Bearer ${config.workerSecret}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ type: config.claimJobType }),
+    body: JSON.stringify(
+      config.claimJobType === "ALL" ? {} : { type: config.claimJobType },
+    ),
   });
 
   if (!response.ok) {
@@ -88,10 +103,11 @@ async function completeJob(
 async function processJob(job: ClaimedJob): Promise<JobHandlerResult> {
   const handlers: Record<SupportedJobType, (claimedJob: ClaimedJob) => Promise<JobHandlerResult>> = {
     GENERATE_AC: handleGenerateAc,
+    GENERATE_PLAN: handleGeneratePlan,
+    GENERATE_CODE: handleGenerateCode,
+    VALIDATE: handleValidate,
   };
 
-  // Phase 6 wires GENERATE_AC end-to-end. Extend this dispatch table as later
-  // phases add PLAN, CODE, VALIDATE, and PR-oriented handlers.
   const handler = handlers[job.type as SupportedJobType];
 
   if (!handler) {

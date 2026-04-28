@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: phase-7-plan-code
     content: "Phase 7: Plan & code generation end-to-end"
-    status: pending
+    status: completed
   - id: phase-8-validation-pr
     content: "Phase 8: Validation, fix-after-failure & PR creation"
     status: pending
@@ -447,47 +447,105 @@ flowchart LR
 
 > **Goal**: Wire up PLANNING and CODE_GENERATION phases with the same pattern as Phase 6. Add the validation layer.
 
+> [!NOTE]
+> **This phase is implemented.** Phase 7 now wires plan generation, code generation, and validation recording end-to-end. Validation is record-only here; Phase 8 still owns completion gating, fix-after-failure, retry caps, and PR creation.
+
 ### Scope
 
-#### 7A: Planning phase (`:muse`)
+#### Already done in current code
 
-1. **Auto-enqueue `GENERATE_PLAN`** when entering `PLANNING`.
-2. **Worker handler `worker/src/handlers/generatePlan.ts`**:
-   - **Prompt pack**: ticket fields, **approved AC content** (fetched via `getArtifact({ ticketId, type: "AC" })`), user "extra context", and BTCA-grounded snippets (same bounded pattern as AC).
+- `GENERATE_PLAN`, `GENERATE_CODE`, and `VALIDATE` are already included in `JOB_TYPES`.
+- [`convex/workflowEngine.ts`](convex/workflowEngine.ts) already maps:
+  - `PLANNING → GENERATE_PLAN`
+  - `CODE_GENERATION → GENERATE_CODE`
+- [`convex/jobs.ts`](convex/jobs.ts) already maps generated content to artifact types:
+  - `GENERATE_PLAN → PLAN`
+  - `GENERATE_CODE → CODE`
+- Basic UI support already exists:
+  - `ArtifactPanel` understands `PLAN` and `CODE` artifacts.
+  - `PhaseRail` understands the PLAN/CODE approval gates.
+  - `JobStatusPanel` has labels for `GENERATE_PLAN`, `GENERATE_CODE`, and `VALIDATE`.
+
+#### Artifact write flow for Phase 7
+
+- Worker handlers must complete jobs through `/worker/complete`.
+- [`convex/jobs.ts`](convex/jobs.ts) `completeJob` is the trusted backend path that writes generated artifact content.
+- `GENERATE_PLAN` and `GENERATE_CODE` handlers should return `result.content`.
+- Backend completion side effects convert `result.content` into draft `PLAN` or `CODE` artifacts.
+- Worker handlers should **not** call user-authenticated `upsertArtifact`.
+
+#### Approved artifact access for Phase 7
+
+- No new public artifact lookup query keyed by `ticketId` and artifact `type` is required for Phase 7.
+- When enqueueing `GENERATE_PLAN`, [`convex/workflowEngine.ts`](convex/workflowEngine.ts) should query the approved AC artifact with `by_ticketId_and_type` and include `approvedAcContent` in job args.
+- When enqueueing `GENERATE_CODE`, [`convex/workflowEngine.ts`](convex/workflowEngine.ts) should query the approved PLAN artifact with `by_ticketId_and_type` and include `approvedPlanContent` in job args.
+
+#### Repo context for Phase 7
+
+- Current [`convex/schema.ts`](convex/schema.ts) does not include BTCA-specific project fields.
+- Phase 7 should not depend on `btcaProjectId` or other BTCA schema state.
+- Worker prompts should use the existing bounded repo context path built from `gitRemoteUrl` and `defaultBranch`.
+
+#### 7A: Planning worker (`:muse`) — ✅ Done
+
+1. Add `worker/src/handlers/generatePlan.ts`.
+2. Expand worker dispatch to accept `GENERATE_PLAN`.
+3. Add approved AC content to `GENERATE_PLAN` job args as `approvedAcContent`.
+4. **Worker handler `worker/src/handlers/generatePlan.ts`**:
+   - **Prompt pack**: ticket fields, `approvedAcContent`, user "extra context", and bounded repo context.
    - Run `forge --agent muse -p "..."`.
-   - Capture muse output / `plans/` file, call `upsertArtifact` with `type: "PLAN"`.
-3. **Approval gate** mirrors AC — approve plan before advancing to `CODE_GENERATION`.
+   - Return `result.content` containing the generated implementation plan.
+5. **Approval gate** mirrors AC — approve plan before advancing to `CODE_GENERATION`.
 
-#### 7B: Code generation phase (`:forge`)
+#### 7B: Code worker (`:forge`) — ✅ Done
 
-1. **Auto-enqueue `GENERATE_CODE`** when entering `CODE_GENERATION` (approved plan content passed in job args).
-2. **Worker handler `worker/src/handlers/generateCode.ts`**:
+1. Add `worker/src/handlers/generateCode.ts`.
+2. Expand worker dispatch to accept `GENERATE_CODE`.
+3. Add approved PLAN content to `GENERATE_CODE` job args as `approvedPlanContent`.
+4. Require `gitRemoteUrl`.
+5. **Worker handler `worker/src/handlers/generateCode.ts`**:
    - Clone or update shallow git checkout (project's `gitRemoteUrl`, `defaultBranch`).
    - Checkout disposable branch `synapse/ticket-<id>`.
    - Run `forge --agent forge -p "Implement the following plan: ..."` with plan text inlined.
    - System/developer instructions require: only changes consistent with the plan; list files touched; if plan is ambiguous, stop and note assumptions.
-   - Call `upsertArtifact` with `type: "CODE"`, storing commit SHA + summary. Prefer git refs + small metadata in Convex over large blobs.
+   - Commit generated changes locally.
+   - Return `result.content`, `branchName`, `commitSha`, `changedFiles`, and `summary`. Prefer git refs + small metadata in Convex over large blobs.
 
-#### 7C: Validation layer
+#### 7C: Validation recording — ✅ Done
 
-1. **Auto-enqueue `VALIDATE`** after each successful `GENERATE_CODE`.
-2. **Worker handler `worker/src/handlers/validate.ts`**:
+1. Add `validationRuns` table.
+2. Add [`convex/validationRuns.ts`](convex/validationRuns.ts).
+3. Add `worker/src/handlers/validate.ts`.
+4. Expand worker dispatch to accept `VALIDATE`.
+5. **Auto-enqueue `VALIDATE`** after each successful `GENERATE_CODE`.
+6. **Worker handler `worker/src/handlers/validate.ts`**:
    - In the same container (or slimmer CI image) with the generated diff applied.
-   - Run `pnpm install --frozen-lockfile`, `pnpm run build`, `pnpm run lint`, then `pnpm test`.
+   - Run `pnpm install --frozen-lockfile`, `pnpm run build`, then `pnpm run lint`.
+   - Note: current [`package.json`](package.json) has no `test` script. If a `test` script is added later, validation can include it as an additional step.
    - Persist `validationRuns` table: step statuses and log excerpts.
-3. **New table `validationRuns`** in schema: `jobId`, `ticketId`, `steps` (array of `{ name, status, logExcerpt }`), `overallStatus` (`"PASSED" | "FAILED"`).
+7. **New table `validationRuns`** in schema: `jobId`, `ticketId`, `steps` (array of `{ name, status, logExcerpt }`), `overallStatus` (`"PASSED" | "FAILED"`).
+8. Add validation display UI.
+
+#### Validation scope
+
+- Phase 7 records validation results only.
+- Phase 7 does **not** gate `CODE_GENERATION → COMPLETED`.
+- Phase 8 owns the real completion gate, fix-after-failure, retry cap, and PR creation.
 
 ### Key files
 
 | Action | File |
 |--------|------|
 | MODIFY | [`convex/schema.ts`](convex/schema.ts) — `validationRuns` table |
-| MODIFY | [`convex/workflowEngine.ts`](convex/workflowEngine.ts) — auto-enqueue for PLANNING & CODE_GEN |
-| MODIFY | [`convex/jobs.ts`](convex/jobs.ts) — side effects for PLAN & CODE |
+| MODIFY | [`convex/workflowEngine.ts`](convex/workflowEngine.ts) — include approved AC/PLAN content in job args |
+| MODIFY | [`convex/jobs.ts`](convex/jobs.ts) — auto-enqueue `VALIDATE` after successful `GENERATE_CODE` |
 | NEW    | [`convex/validationRuns.ts`](convex/validationRuns.ts) — queries for validation data |
 | NEW    | `worker/src/handlers/generatePlan.ts` |
 | NEW    | `worker/src/handlers/generateCode.ts` |
 | NEW    | `worker/src/handlers/validate.ts` |
+| MODIFY | `worker/src/index.ts` — dispatch `GENERATE_PLAN`, `GENERATE_CODE`, and `VALIDATE` |
+| MODIFY | `worker/src/types.ts` — add PLAN/CODE/VALIDATE job arg/result contracts |
+| MODIFY | `src/pages/TicketDetailPage.tsx` — show validation results |
 
 ### How to test
 
@@ -503,7 +561,7 @@ flowchart LR
 
 **7C — Validation:**
 1. After code generation succeeds → `VALIDATE` job auto-enqueued.
-2. Worker runs build/lint/test → `validationRuns` row created.
+2. Worker runs install/build/lint → `validationRuns` row created.
 3. If `PASSED` → validation badge shows green in UI.
 4. If `FAILED` → badge shows red with expandable log excerpts.
 

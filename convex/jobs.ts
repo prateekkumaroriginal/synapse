@@ -69,7 +69,7 @@ export const claimNextJob = internalMutation({
     }
 
     if (job !== null) {
-      await ctx.db.patch(job._id, {
+      await ctx.db.patch("asyncJobs", job._id, {
         status: "running",
         startedAt: Date.now(),
         attempt: job.attempt + 1,
@@ -98,13 +98,13 @@ export const completeJob = internalMutation({
     let artifactId;
 
     if (args.result && typeof args.result.content === "string") {
-      let type: ArtifactType | null = JOB_TYPE_TO_ARTIFACT_TYPE[job.type] ?? null;
+      const type: ArtifactType | null = JOB_TYPE_TO_ARTIFACT_TYPE[job.type] ?? null;
 
       if (type !== null) {
         const existingArtifact = await ctx.db
           .query("artifacts")
           .withIndex("by_ticketId_and_type", (q) =>
-            q.eq("ticketId", job.ticketId).eq("type", type!)
+            q.eq("ticketId", job.ticketId).eq("type", type)
           )
           .unique();
 
@@ -127,7 +127,45 @@ export const completeJob = internalMutation({
       }
     }
 
-    await ctx.db.patch(job._id, {
+    if (args.status === "succeeded" && job.type === "GENERATE_CODE") {
+      const idempotencyKey = `ticket:${job.ticketId}:codeJob:${job._id}:validate`;
+      const existingValidationJob = await ctx.db
+        .query("asyncJobs")
+        .withIndex("by_idempotencyKey", (q) => q.eq("idempotencyKey", idempotencyKey))
+        .unique();
+
+      if (existingValidationJob === null) {
+        const result = args.result && typeof args.result === "object"
+          ? args.result as Record<string, unknown>
+          : {};
+        const jobArgs = typeof job.args === "object" && job.args !== null
+          ? job.args as Record<string, unknown>
+          : {};
+        const changedFiles = Array.isArray(result.changedFiles)
+          ? result.changedFiles.filter((value): value is string => typeof value === "string")
+          : [];
+
+        await ctx.db.insert("asyncJobs", {
+          ticketId: job.ticketId,
+          projectId: job.projectId,
+          type: "VALIDATE",
+          status: "queued",
+          attempt: 0,
+          args: {
+            codeJobId: job._id,
+            branchName: typeof result.branchName === "string" ? result.branchName : null,
+            commitSha: typeof result.commitSha === "string" ? result.commitSha : null,
+            changedFiles,
+            workspacePath: typeof result.workspacePath === "string" ? result.workspacePath : null,
+            gitRemoteUrl: typeof jobArgs.gitRemoteUrl === "string" ? jobArgs.gitRemoteUrl : null,
+            defaultBranch: typeof jobArgs.defaultBranch === "string" ? jobArgs.defaultBranch : null,
+          },
+          idempotencyKey,
+        });
+      }
+    }
+
+    await ctx.db.patch("asyncJobs", job._id, {
       status: args.status,
       result: args.result,
       error: args.error,
@@ -168,7 +206,7 @@ export const cancelJob = mutation({
     await assertProjectAccess(ctx, job.projectId, userId);
 
     if (job.status === "queued" || job.status === "running") {
-      await ctx.db.patch(job._id, { status: "cancelled" });
+      await ctx.db.patch("asyncJobs", job._id, { status: "cancelled" });
     } else {
       throw new Error(`Cannot cancel job in status ${job.status}`);
     }

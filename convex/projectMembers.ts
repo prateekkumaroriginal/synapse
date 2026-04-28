@@ -105,6 +105,6 @@ export const removeMember = mutation({
       throw new Error("Membership does not belong to this project");
     }
 
-    await ctx.db.delete(args.memberId);
+    await ctx.db.delete("projectMembers", args.memberId);
   },
 });

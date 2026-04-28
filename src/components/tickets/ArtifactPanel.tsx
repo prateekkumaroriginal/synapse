@@ -178,11 +178,13 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center">
               {isCurrentPhase ? (
-                <Button
-                  variant="outline"
-                  onClick={handleRegenerate}
-                  disabled={isRegenerating || !promptInput.trim()}
-                >
+	                <Button
+	                  variant="outline"
+	                  onClick={() => {
+                      void handleRegenerate();
+                    }}
+	                  disabled={isRegenerating || !promptInput.trim()}
+	                >
                   {isRegenerating ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
                   Regenerate
                 </Button>
@@ -209,20 +211,24 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
             </div>
 
             {activeArtifact.status === "draft" ? (
-              <Button
-                className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                onClick={handleApprove}
-              >
+	              <Button
+	                className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+	                onClick={() => {
+                    void handleApprove();
+                  }}
+	              >
                 <CheckCircle className="size-4" />
                 Approve Document
               </Button>
             ) : (
               <Button
-                variant="secondary"
-                className="w-full sm:w-auto hover:bg-rose-100 hover:text-rose-700 transition-colors"
-                onClick={handleUnapprove}
-                disabled={!isCurrentPhase}
-              >
+	                variant="secondary"
+	                className="w-full sm:w-auto hover:bg-rose-100 hover:text-rose-700 transition-colors"
+	                onClick={() => {
+                    void handleUnapprove();
+                  }}
+	                disabled={!isCurrentPhase}
+	              >
                 <XCircle className="size-4" />
                 Revoke Approval
               </Button>

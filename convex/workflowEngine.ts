@@ -43,6 +43,7 @@ function buildJobArgsForPhase(
   },
   phase: TicketStatus,
   userPrompt: string,
+  approvedArtifactContent?: string,
 ) {
   return {
     phase,
@@ -52,7 +53,43 @@ function buildJobArgsForPhase(
     gitRemoteUrl: project.gitRemoteUrl ?? null,
     defaultBranch: project.defaultBranch ?? null,
     userPrompt,
+    ...(phase === "PLANNING" && approvedArtifactContent !== undefined
+      ? { approvedAcContent: approvedArtifactContent }
+      : {}),
+    ...(phase === "CODE_GENERATION" && approvedArtifactContent !== undefined
+      ? { approvedPlanContent: approvedArtifactContent }
+      : {}),
   };
+}
+
+async function getApprovedPriorArtifactContent(
+  ctx: MutationCtx,
+  ticketId: Id<"tickets">,
+  phase: TicketStatus,
+): Promise<string | undefined> {
+  const requiredType: ArtifactType | null =
+    phase === "PLANNING"
+      ? "AC"
+      : phase === "CODE_GENERATION"
+        ? "PLAN"
+        : null;
+
+  if (requiredType === null) {
+    return undefined;
+  }
+
+  const artifact = await ctx.db
+    .query("artifacts")
+    .withIndex("by_ticketId_and_type", (q) =>
+      q.eq("ticketId", ticketId).eq("type", requiredType),
+    )
+    .unique();
+
+  if (artifact === null || artifact.status !== "approved") {
+    throw new Error(`Approved ${ARTIFACT_LABELS[requiredType]} is required before enqueueing ${phase} generation`);
+  }
+
+  return artifact.content;
 }
 
 async function hasActiveJob(
@@ -105,13 +142,19 @@ async function enqueuePhaseEntryJob(
     return;
   }
 
+  const approvedArtifactContent = await getApprovedPriorArtifactContent(
+    ctx,
+    ticketId,
+    to,
+  );
+
   await ctx.db.insert("asyncJobs", {
     ticketId,
     projectId: ticket.projectId,
     type: jobType,
     status: "queued",
     attempt: 0,
-    args: buildJobArgsForPhase(ticket, project, to, ""),
+    args: buildJobArgsForPhase(ticket, project, to, "", approvedArtifactContent),
     idempotencyKey,
   });
 }
@@ -284,13 +327,25 @@ export const requestRegeneration = mutation({
       throw new Error("Project not found");
     }
 
+    const approvedArtifactContent = await getApprovedPriorArtifactContent(
+      ctx,
+      ticketId,
+      phase,
+    );
+
     return await ctx.db.insert("asyncJobs", {
       ticketId,
       projectId: ticket.projectId,
       type: jobType,
       status: "queued",
       attempt: 0,
-      args: buildJobArgsForPhase(ticket, project, phase, userPrompt.trim()),
+      args: buildJobArgsForPhase(
+        ticket,
+        project,
+        phase,
+        userPrompt.trim(),
+        approvedArtifactContent,
+      ),
       idempotencyKey: crypto.randomUUID(),
     });
   },

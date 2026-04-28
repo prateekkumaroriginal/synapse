@@ -19,6 +19,7 @@ import type * as ticketWorkflow from "../ticketWorkflow.js";
 import type * as tickets from "../tickets.js";
 import type * as users from "../users.js";
 import type * as utils_projectAccess from "../utils/projectAccess.js";
+import type * as validationRuns from "../validationRuns.js";
 import type * as validations from "../validations.js";
 import type * as workflowEngine from "../workflowEngine.js";
 
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   tickets: typeof tickets;
   users: typeof users;
   "utils/projectAccess": typeof utils_projectAccess;
+  validationRuns: typeof validationRuns;
   validations: typeof validations;
   workflowEngine: typeof workflowEngine;
 }>;

@@ -49,8 +49,12 @@ export default function ProjectWorkspacePage() {
     status: parseAsString.withDefault("ALL")
   });
 
-  const setSearchQuery = (q: string) => setQueryStates({ q });
-  const setFilterStatus = (status: string) => setQueryStates({ status });
+  const setSearchQuery = (q: string) => {
+    void setQueryStates({ q });
+  };
+  const setFilterStatus = (status: string) => {
+    void setQueryStates({ status });
+  };
 
   async function handleMove(
     ticketId: Id<"tickets">,
