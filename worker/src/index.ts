@@ -1,6 +1,11 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { handleGenerateAc } from "./handlers/generateAC.js";
-import type { ClaimedJob, JobHandlerResult } from "./types.js";
+import type {
+  AcGenerationConfig,
+  ClaimedJob,
+  ContextModelProvider,
+  JobHandlerResult,
+} from "./types.js";
 
 type SupportedJobType = "GENERATE_AC";
 
@@ -9,6 +14,7 @@ interface WorkerConfig {
   workerSecret: string;
   pollIntervalMs: number;
   claimJobType: SupportedJobType;
+  acGeneration: AcGenerationConfig;
 }
 
 function requireEnv(name: string): string {
@@ -21,23 +27,64 @@ function requireEnv(name: string): string {
   return value;
 }
 
+function requireAnyEnv(names: string[]): string {
+  const configuredName = names.find((name) => {
+    const value = process.env[name];
+    return value !== undefined && value.length > 0;
+  });
+
+  if (configuredName === undefined) {
+    throw new Error(
+      `Missing Forge provider authentication. Set at least one of: ${names.join(", ")}`,
+    );
+  }
+
+  return configuredName;
+}
+
+function parseRequiredNonNegativeInteger(name: string): number {
+  const value = Number.parseInt(requireEnv(name), 10);
+
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`${name} must be a non-negative integer`);
+  }
+
+  return value;
+}
+
 function loadConfig(): WorkerConfig {
-  const pollIntervalMs = Number.parseInt(requireEnv("POLL_INTERVAL_MS"), 10);
-  const claimJobType = requireEnv("CLAIM_JOB_TYPE") as SupportedJobType;
+  const pollIntervalMs = Number.parseInt(process.env.POLL_INTERVAL_MS!, 10);
+  const claimJobType = process.env.CLAIM_JOB_TYPE as SupportedJobType;
+  const contextModelProvider = process.env.CONTEXT_MODEL_PROVIDER as ContextModelProvider;
+  const contextModelBaseUrl = process.env.CONTEXT_MODEL_BASE_URL || null;
 
-  if (!Number.isFinite(pollIntervalMs) || pollIntervalMs < 0) {
-    throw new Error("POLL_INTERVAL_MS must be a non-negative integer");
-  }
-
-  if (claimJobType !== "GENERATE_AC") {
-    throw new Error(`Unsupported CLAIM_JOB_TYPE: ${claimJobType}`);
-  }
+  requireAnyEnv([
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_AI_STUDIO_API_KEY",
+    "OPENAI_API_KEY",
+    "OPENROUTER_API_KEY",
+    "FORGE_PROVIDER_API_KEY",
+  ]);
 
   return {
     convexUrl: requireEnv("CONVEX_URL"),
     workerSecret: requireEnv("WORKER_SECRET"),
     pollIntervalMs,
     claimJobType,
+    acGeneration: {
+      contextModelProvider,
+      contextModelName: requireEnv("CONTEXT_MODEL_NAME"),
+      contextModelApiKey: requireEnv("CONTEXT_MODEL_API_KEY"),
+      contextModelBaseUrl,
+      contextModelTimeoutMs: parseRequiredNonNegativeInteger(
+        "CONTEXT_MODEL_TIMEOUT_MS",
+      ),
+      forgeBin: requireEnv("FORGE_BIN"),
+      forgeAgent: requireEnv("FORGE_AGENT"),
+      forgePromptFlag: requireEnv("FORGE_PROMPT_FLAG"),
+      forgeTimeoutMs: parseRequiredNonNegativeInteger("FORGE_TIMEOUT_MS"),
+    },
   };
 }
 
@@ -85,22 +132,23 @@ async function completeJob(
   }
 }
 
-async function processJob(job: ClaimedJob): Promise<JobHandlerResult> {
+async function processJob(
+  config: WorkerConfig,
+  job: ClaimedJob,
+): Promise<JobHandlerResult> {
   const handlers: Record<SupportedJobType, (claimedJob: ClaimedJob) => Promise<JobHandlerResult>> = {
-    GENERATE_AC: handleGenerateAc,
+    GENERATE_AC: async (claimedJob) =>
+      await handleGenerateAc(claimedJob, config.acGeneration),
   };
 
-  // Phase 5 stub:
-  // Only GENERATE_AC is wired for now so we can exercise the real worker
-  // plumbing against the existing Convex queue and completion endpoints.
-  // Extend this dispatch table as later phases add PLAN, CODE, VALIDATE, and
-  // PR-oriented handlers.
+  // Only GENERATE_AC is wired for Phase 6. Later phases can extend this table
+  // for PLAN, CODE, VALIDATE, and PR-oriented handlers.
   const handler = handlers[job.type as SupportedJobType];
 
   if (!handler) {
     return {
       status: "failed",
-      error: `Unsupported job type in Phase 5 worker: ${job.type}`,
+      error: `Unsupported job type in Phase 6 worker: ${job.type}`,
     };
   }
 
@@ -108,10 +156,15 @@ async function processJob(job: ClaimedJob): Promise<JobHandlerResult> {
     return await handler(job);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const boundedMessage = message.slice(0, 4_000);
+
+    console.error(
+      `[worker] ${job.type} job ${job._id} failed before completion callback: ${boundedMessage}`,
+    );
 
     return {
       status: "failed",
-      error: message.slice(0, 4_000),
+      error: boundedMessage,
     };
   }
 }
@@ -144,7 +197,7 @@ async function runWorker(config: WorkerConfig): Promise<void> {
 
       console.log(`[worker] claimed ${job.type} job ${job._id} for ticket ${job.ticketId}`);
 
-      const outcome = await processJob(job);
+      const outcome = await processJob(config, job);
 
       await completeJob(config, job._id, outcome);
 

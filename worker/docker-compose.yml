@@ -1,0 +1,12 @@
+services:
+  worker:
+    build:
+      context: ..
+      dockerfile: worker/Dockerfile
+    env_file:
+      - .env
+    environment:
+      # Force the documented non-interactive ForgeCode prompt flag even if
+      # worker/.env still has the old -p value.
+      FORGE_PROMPT_FLAG: --prompt
+    restart: unless-stopped

@@ -23,7 +23,6 @@ export interface GenerateAcJobArgs {
   ticketType: "TASK" | "BUG";
   gitRemoteUrl: string | null;
   defaultBranch: string | null;
-  btcaProjectId: string | null;
   userPrompt: string;
 }
 
@@ -57,3 +56,21 @@ export interface JobFailureResult {
 }
 
 export type JobHandlerResult = JobSuccessResult | JobFailureResult;
+
+export type ContextModelProvider =
+  | "gemini"
+  | "openai"
+  | "openai-compatible"
+  | "openrouter";
+
+export interface AcGenerationConfig {
+  contextModelProvider: ContextModelProvider;
+  contextModelName: string;
+  contextModelApiKey: string;
+  contextModelBaseUrl: string | null;
+  contextModelTimeoutMs: number;
+  forgeBin: string;
+  forgeAgent: string;
+  forgePromptFlag: string;
+  forgeTimeoutMs: number;
+}

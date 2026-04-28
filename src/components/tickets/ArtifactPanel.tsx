@@ -136,7 +136,7 @@ export function ArtifactPanel({ ticketId, selectedPhase, currentTicketPhase }: A
         {activeArtifact ? (
           <div className="prose prose-sm dark:prose-invert max-w-none">
             <pre className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed bg-transparent p-0 m-0 border-none outline-none">
-              {activeArtifact.content}
+              {activeArtifact.content.trim().replace(/\n{3,}/g, "\n\n")}
             </pre>
           </div>
         ) : (
