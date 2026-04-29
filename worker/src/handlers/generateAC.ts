@@ -18,6 +18,36 @@ function truncate(value: string, maxChars: number): string {
   return `${value.slice(0, maxChars)}\n[truncated]`;
 }
 
+function findAcceptanceCriteriaBlocks(output: string): Array<{
+  start: number;
+  end: number;
+  content: string;
+}> {
+  const blocks: Array<{ start: number; end: number; content: string }> = [];
+  let searchIndex = 0;
+
+  while (searchIndex < output.length) {
+    const start = output.indexOf(AC_START, searchIndex);
+
+    if (start === -1) break;
+
+    const contentStart = start + AC_START.length;
+    const end = output.indexOf(AC_END, contentStart);
+
+    if (end === -1) break;
+
+    const content = output
+      .slice(contentStart, end)
+      .trim()
+      .replace(/\n{3,}/g, "\n\n");
+
+    blocks.push({ start, end, content });
+    searchIndex = end + AC_END.length;
+  }
+
+  return blocks;
+}
+
 function buildTicketContext(job: ClaimedJob): string {
   const context = buildContextBundle(job);
   const lines = [
@@ -335,31 +365,28 @@ async function runForge(
 }
 
 function extractAcceptanceCriteria(output: string): string {
-  const start = output.indexOf(AC_START);
-  const end = output.indexOf(AC_END);
+  const blocks = findAcceptanceCriteriaBlocks(output);
+  const nonEmptyBlocks = blocks.filter((block) => block.content.length > 0);
 
-  if (start === -1 || end === -1) {
+  if (!output.includes(AC_START) || !output.includes(AC_END)) {
     throw new Error("ForgeCode output did not include [AC_START] and [AC_END] markers");
   }
 
-  if (start !== output.lastIndexOf(AC_START) || end !== output.lastIndexOf(AC_END)) {
-    throw new Error(`ForgeCode output included duplicate AC markers: ${start}:${output.lastIndexOf(AC_START)}, ${end}:${output.lastIndexOf(AC_END)}`);
+  if (blocks.length === 0) {
+    throw new Error("ForgeCode output did not include a complete AC marker pair");
   }
 
-  if (end < start) {
-    throw new Error("ForgeCode output placed [AC_END] before [AC_START]");
-  }
-
-  const content = output
-    .slice(start + AC_START.length, end)
-    .trim()
-    .replace(/\n{3,}/g, "\n\n");
-
-  if (content.length === 0) {
+  if (nonEmptyBlocks.length === 0) {
     throw new Error("ForgeCode output included empty acceptance criteria");
   }
 
-  return content;
+  const selectedBlock = nonEmptyBlocks.at(-1);
+
+  if (selectedBlock === undefined) {
+    throw new Error("ForgeCode output included empty acceptance criteria");
+  }
+
+  return selectedBlock.content;
 }
 
 export async function handleGenerateAc(
