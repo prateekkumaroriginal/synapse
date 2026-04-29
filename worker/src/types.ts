@@ -56,3 +56,11 @@ export interface JobFailureResult {
 }
 
 export type JobHandlerResult = JobSuccessResult | JobFailureResult;
+
+export type CodexProvider = "openai" | "anthropic" | "gemini";
+
+export interface CodexConfig {
+  provider: CodexProvider;
+  cliProvider: string;
+  model: string;
+}

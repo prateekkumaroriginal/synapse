@@ -107,7 +107,7 @@ export function JobStatusPanel({ ticketId }: JobStatusPanelProps) {
                     </span>
                   </AccordionTrigger>
                   <AccordionContent className="pb-1 pt-1">
-                    <Alert variant="destructive" className="bg-rose-50/50 flex flex-col gap-2">
+                    <Alert variant="destructive" className="flex flex-col gap-2">
                       <AlertTitle className="text-xs font-bold uppercase tracking-wider">Traceback Logs</AlertTitle>
                       <AlertDescription className="text-xs font-mono whitespace-pre-wrap overflow-x-auto">
                         {job.error}

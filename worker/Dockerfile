@@ -5,6 +5,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable
+RUN npm install -g @openai/codex
 
 WORKDIR /app
 

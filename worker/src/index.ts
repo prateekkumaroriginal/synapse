@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { handleGenerateAc } from "./handlers/generateAC.js";
-import type { ClaimedJob, JobHandlerResult } from "./types.js";
+import type { ClaimedJob, CodexConfig, CodexProvider, JobHandlerResult } from "./types.js";
 
 type SupportedJobType = "GENERATE_AC";
 
@@ -9,6 +9,7 @@ interface WorkerConfig {
   workerSecret: string;
   pollIntervalMs: number;
   claimJobType: SupportedJobType;
+  codex: CodexConfig;
 }
 
 function requireEnv(name: string): string {
@@ -24,6 +25,8 @@ function requireEnv(name: string): string {
 function loadConfig(): WorkerConfig {
   const pollIntervalMs = Number.parseInt(requireEnv("POLL_INTERVAL_MS"), 10);
   const claimJobType = requireEnv("CLAIM_JOB_TYPE") as SupportedJobType;
+  const codexProvider = requireEnv("CODEX_PROVIDER") as CodexProvider;
+  const codexModel = requireEnv("CODEX_MODEL");
 
   if (!Number.isFinite(pollIntervalMs) || pollIntervalMs < 0) {
     throw new Error("POLL_INTERVAL_MS must be a non-negative integer");
@@ -33,11 +36,37 @@ function loadConfig(): WorkerConfig {
     throw new Error(`Unsupported CLAIM_JOB_TYPE: ${claimJobType}`);
   }
 
+  const providerApiKeys: Record<CodexProvider, string> = {
+    openai: "OPENAI_API_KEY",
+    anthropic: "ANTHROPIC_API_KEY",
+    gemini: "GEMINI_API_KEY",
+  };
+
+  const apiKeyName = providerApiKeys[codexProvider];
+
+  if (apiKeyName === undefined) {
+    throw new Error(`Unsupported CODEX_PROVIDER: ${codexProvider}`);
+  }
+
+  requireEnv(apiKeyName);
+
+  if (codexProvider !== "openai") {
+    throw new Error(
+      `CODEX_PROVIDER=${codexProvider} is not supported by the installed Codex CLI API-key flow. ` +
+        "Codex CLI 0.125.0 requires a Responses-compatible provider; use CODEX_PROVIDER=openai.",
+    );
+  }
+
   return {
     convexUrl: requireEnv("CONVEX_URL"),
     workerSecret: requireEnv("WORKER_SECRET"),
     pollIntervalMs,
     claimJobType,
+    codex: {
+      provider: codexProvider,
+      cliProvider: codexProvider,
+      model: codexModel,
+    },
   };
 }
 
@@ -85,27 +114,25 @@ async function completeJob(
   }
 }
 
-async function processJob(job: ClaimedJob): Promise<JobHandlerResult> {
-  const handlers: Record<SupportedJobType, (claimedJob: ClaimedJob) => Promise<JobHandlerResult>> = {
+async function processJob(config: WorkerConfig, job: ClaimedJob): Promise<JobHandlerResult> {
+  const handlers: Record<
+    SupportedJobType,
+    (claimedJob: ClaimedJob, codex: CodexConfig) => Promise<JobHandlerResult>
+  > = {
     GENERATE_AC: handleGenerateAc,
   };
 
-  // Phase 5 stub:
-  // Only GENERATE_AC is wired for now so we can exercise the real worker
-  // plumbing against the existing Convex queue and completion endpoints.
-  // Extend this dispatch table as later phases add PLAN, CODE, VALIDATE, and
-  // PR-oriented handlers.
   const handler = handlers[job.type as SupportedJobType];
 
   if (!handler) {
     return {
       status: "failed",
-      error: `Unsupported job type in Phase 5 worker: ${job.type}`,
+      error: `Unsupported job type: ${job.type}`,
     };
   }
 
   try {
-    return await handler(job);
+    return await handler(job, config.codex);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -144,7 +171,7 @@ async function runWorker(config: WorkerConfig): Promise<void> {
 
       console.log(`[worker] claimed ${job.type} job ${job._id} for ticket ${job.ticketId}`);
 
-      const outcome = await processJob(job);
+      const outcome = await processJob(config, job);
 
       await completeJob(config, job._id, outcome);
 
