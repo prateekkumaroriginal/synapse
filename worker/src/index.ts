@@ -42,6 +42,10 @@ function requireAnyEnv(names: string[]): string {
   return configuredName;
 }
 
+function optionalEnv(name: string): string {
+  return process.env[name] ?? "";
+}
+
 function parseRequiredNonNegativeInteger(name: string): number {
   const value = Number.parseInt(requireEnv(name), 10);
 
@@ -81,7 +85,7 @@ function loadConfig(): WorkerConfig {
         "CONTEXT_MODEL_TIMEOUT_MS",
       ),
       forgeBin: requireEnv("FORGE_BIN"),
-      forgeAgent: requireEnv("FORGE_AGENT"),
+      forgeAgent: optionalEnv("FORGE_AGENT"),
       forgePromptFlag: requireEnv("FORGE_PROMPT_FLAG"),
       forgeTimeoutMs: parseRequiredNonNegativeInteger("FORGE_TIMEOUT_MS"),
     },
