@@ -23,7 +23,6 @@ export interface GenerateAcJobArgs {
   ticketType: "TASK" | "BUG";
   gitRemoteUrl: string | null;
   defaultBranch: string | null;
-  btcaProjectId: string | null;
   userPrompt: string;
 }
 

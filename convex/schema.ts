@@ -67,10 +67,9 @@ export default defineSchema({
     description: v.optional(v.string()),
     ownerId: v.id("users"),
     isArchived: v.boolean(),
-    // Phase 1: git / BTCA integration fields
+    // Phase 1: git integration fields
     gitRemoteUrl: v.optional(v.string()),
     defaultBranch: v.optional(v.string()),
-    btcaProjectId: v.optional(v.string()),
   }).index("by_owner", ["ownerId"]),
   projectMembers: defineTable({
     projectId: v.id("projects"),
