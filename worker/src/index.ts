@@ -59,8 +59,20 @@ function parseRequiredNonNegativeInteger(name: string): number {
 function loadConfig(): WorkerConfig {
   const pollIntervalMs = Number.parseInt(process.env.POLL_INTERVAL_MS!, 10);
   const claimJobType = process.env.CLAIM_JOB_TYPE as SupportedJobType;
-  const contextModelProvider = process.env.CONTEXT_MODEL_PROVIDER as ContextModelProvider;
+  const contextModelProvider = requireEnv(
+    "CONTEXT_MODEL_PROVIDER",
+  ) as ContextModelProvider;
+  const contextModelApiKey =
+    contextModelProvider === "bedrock-anthropic"
+      ? ""
+      : requireEnv("CONTEXT_MODEL_API_KEY");
   const contextModelBaseUrl = process.env.CONTEXT_MODEL_BASE_URL || null;
+  const bedrockRegion =
+    process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || null;
+
+  if (contextModelProvider === "bedrock-anthropic" && bedrockRegion === null) {
+    throw new Error("AWS_REGION or AWS_DEFAULT_REGION is required for bedrock-anthropic");
+  }
 
   requireAnyEnv([
     "ANTHROPIC_API_KEY",
@@ -69,6 +81,7 @@ function loadConfig(): WorkerConfig {
     "OPENAI_API_KEY",
     "OPENROUTER_API_KEY",
     "FORGE_PROVIDER_API_KEY",
+    "AWS_ACCESS_KEY_ID",
   ]);
 
   return {
@@ -79,11 +92,12 @@ function loadConfig(): WorkerConfig {
     acGeneration: {
       contextModelProvider,
       contextModelName: requireEnv("CONTEXT_MODEL_NAME"),
-      contextModelApiKey: requireEnv("CONTEXT_MODEL_API_KEY"),
+      contextModelApiKey,
       contextModelBaseUrl,
       contextModelTimeoutMs: parseRequiredNonNegativeInteger(
         "CONTEXT_MODEL_TIMEOUT_MS",
       ),
+      bedrockRegion,
       forgeBin: requireEnv("FORGE_BIN"),
       forgeAgent: optionalEnv("FORGE_AGENT"),
       forgePromptFlag: requireEnv("FORGE_PROMPT_FLAG"),

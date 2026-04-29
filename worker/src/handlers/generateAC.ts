@@ -1,4 +1,8 @@
 import { spawn } from "node:child_process";
+import {
+  BedrockRuntimeClient,
+  InvokeModelCommand,
+} from "@aws-sdk/client-bedrock-runtime";
 import { buildContextBundle } from "../contextBundle.js";
 import type {
   AcGenerationConfig,
@@ -223,6 +227,96 @@ async function callGeminiContextModel(
   return truncate(text.trim(), MAX_MODEL_OUTPUT_CHARS);
 }
 
+async function callAnthropicContextModel(
+  config: AcGenerationConfig,
+  prompt: string,
+): Promise<string> {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": config.contextModelApiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: config.contextModelName,
+      max_tokens: 1_000,
+      system:
+        "You produce concise product/context questions that help another coding agent write acceptance criteria. Do not write the acceptance criteria.",
+      messages: [{ role: "user", content: prompt }],
+    }),
+    signal: AbortSignal.timeout(config.contextModelTimeoutMs),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Context model failed with ${response.status}: ${(await response.text()).slice(0, 1_000)}`,
+    );
+  }
+
+  const data = readObject(await parseJsonResponse(response), "response object");
+  const text = readFirstTextPart(data.content);
+
+  if (text.trim().length === 0) {
+    throw new Error("Context model returned empty content");
+  }
+
+  return truncate(text.trim(), MAX_MODEL_OUTPUT_CHARS);
+}
+
+async function callBedrockAnthropicContextModel(
+  config: AcGenerationConfig,
+  prompt: string,
+): Promise<string> {
+  if (config.bedrockRegion === null) {
+    throw new Error("AWS_REGION or AWS_DEFAULT_REGION is required for bedrock-anthropic");
+  }
+
+  const client = new BedrockRuntimeClient({
+    region: config.bedrockRegion,
+  });
+
+  const payload = {
+    anthropic_version: "bedrock-2023-05-31",
+    max_tokens: 1_000,
+    system:
+      "You produce concise product/context questions that help another coding agent write acceptance criteria. Do not write the acceptance criteria.",
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "text", text: prompt }],
+      },
+    ],
+  };
+
+  const response = await client.send(
+    new InvokeModelCommand({
+      modelId: config.contextModelName,
+      contentType: "application/json",
+      accept: "application/json",
+      body: JSON.stringify(payload),
+    }),
+  );
+
+  const textBody = new TextDecoder().decode(response.body);
+  let data: unknown;
+
+  try {
+    data = JSON.parse(textBody);
+  } catch {
+    throw new Error(`Context model returned non-JSON response: ${textBody.slice(0, 500)}`);
+  }
+
+  const responseObject = readObject(data, "response object");
+  const text = readFirstTextPart(responseObject.content);
+
+  if (text.trim().length === 0) {
+    throw new Error("Context model returned empty content");
+  }
+
+  return truncate(text.trim(), MAX_MODEL_OUTPUT_CHARS);
+}
+
 async function askContextQuestions(
   config: AcGenerationConfig,
   ticketContext: string,
@@ -234,6 +328,14 @@ async function askContextQuestions(
     "",
     ticketContext,
   ].join("\n");
+
+  if (config.contextModelProvider === "anthropic") {
+    return await callAnthropicContextModel(config, prompt);
+  }
+
+  if (config.contextModelProvider === "bedrock-anthropic") {
+    return await callBedrockAnthropicContextModel(config, prompt);
+  }
 
   if (config.contextModelProvider === "gemini") {
     return await callGeminiContextModel(config, prompt);

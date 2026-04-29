@@ -58,6 +58,8 @@ export interface JobFailureResult {
 export type JobHandlerResult = JobSuccessResult | JobFailureResult;
 
 export type ContextModelProvider =
+  | "anthropic"
+  | "bedrock-anthropic"
   | "gemini"
   | "openai"
   | "openai-compatible"
@@ -69,6 +71,7 @@ export interface AcGenerationConfig {
   contextModelApiKey: string;
   contextModelBaseUrl: string | null;
   contextModelTimeoutMs: number;
+  bedrockRegion: string | null;
   forgeBin: string;
   forgeAgent: string;
   forgePromptFlag: string;
