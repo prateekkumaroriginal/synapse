@@ -8,7 +8,6 @@ export interface ContextBundle {
   ticketType: "TASK" | "BUG";
   gitRemoteUrl: string | null;
   defaultBranch: string | null;
-  btcaProjectId: string | null;
   userPrompt: string | null;
 }
 
@@ -30,7 +29,6 @@ function readGenerateAcArgs(args: ClaimedJob["args"]): GenerateAcJobArgs {
     ticketType: args.ticketType,
     gitRemoteUrl: normalizeString(args.gitRemoteUrl),
     defaultBranch: normalizeString(args.defaultBranch),
-    btcaProjectId: normalizeString(args.btcaProjectId),
     userPrompt: normalizeString(args.userPrompt) ?? "",
   };
 }
@@ -46,7 +44,6 @@ export function buildContextBundle(job: ClaimedJob): ContextBundle {
     ticketType: args.ticketType,
     gitRemoteUrl: args.gitRemoteUrl,
     defaultBranch: args.defaultBranch,
-    btcaProjectId: args.btcaProjectId,
     userPrompt: normalizeString(args.userPrompt),
   };
 }

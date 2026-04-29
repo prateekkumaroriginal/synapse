@@ -9,9 +9,6 @@ function buildStubContent(job: ClaimedJob): string {
   const descriptionLine = context.ticketDescription
     ? `- Ticket description: ${context.ticketDescription}`
     : "- Ticket description: none";
-  const btcaLine = context.btcaProjectId
-    ? `- BTCA project: ${context.btcaProjectId}`
-    : "- BTCA project: not configured";
 
   return [
     "# Acceptance Criteria",
@@ -24,7 +21,6 @@ function buildStubContent(job: ClaimedJob): string {
     `- Ticket type: ${context.ticketType}`,
     `- Git remote: ${context.gitRemoteUrl ?? "not configured"}`,
     `- Default branch: ${context.defaultBranch ?? "not configured"}`,
-    btcaLine,
     "",
     "## Scenario 1: Ticket is ready for review",
     "- Given a queued GENERATE_AC job exists for this ticket",
@@ -45,8 +41,8 @@ export async function handleGenerateAc(job: ClaimedJob): Promise<JobHandlerResul
   // Phase 5 stub:
   // Replace this deterministic payload generator with the real AC pipeline in
   // Phase 6. The future implementation should build a bounded prompt from the
-  // ticket context, optionally query BTCA for grounded repo context, invoke
-  // Forge/Muse, and return the generated markdown as `result.content`.
+  // ticket context, invoke Forge/Muse, and return the generated markdown as
+  // `result.content`.
   return {
     status: "succeeded",
     result: {

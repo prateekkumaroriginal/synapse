@@ -40,7 +40,6 @@ function buildJobArgsForPhase(
   project: {
     gitRemoteUrl?: string;
     defaultBranch?: string;
-    btcaProjectId?: string;
   },
   phase: TicketStatus,
   userPrompt: string,
@@ -52,7 +51,6 @@ function buildJobArgsForPhase(
     ticketType: ticket.type,
     gitRemoteUrl: project.gitRemoteUrl ?? null,
     defaultBranch: project.defaultBranch ?? null,
-    btcaProjectId: project.btcaProjectId ?? null,
     userPrompt,
   };
 }
