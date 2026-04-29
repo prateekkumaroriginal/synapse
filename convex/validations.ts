@@ -31,6 +31,40 @@ export const projectFormSchema = z.object({
 export type ProjectFormValues = z.input<typeof projectFormSchema>;
 export type ProjectFormParsed = z.output<typeof projectFormSchema>;
 
+const optionalTrimmedString = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => value || undefined);
+
+const gitHostPattern = /^(github\.com|gitlab\.com|bitbucket\.org)$/i;
+
+const optionalGitRepoUrl = z
+  .url({
+    protocol: /^https$/,
+    hostname: gitHostPattern,
+    error: "Enter an HTTPS GitHub, GitLab, or Bitbucket repository URL",
+  })
+  .optional();
+
+export const projectSettingsFormSchema = projectFormSchema
+  .extend({
+    gitRemoteUrl: optionalGitRepoUrl,
+    defaultBranch: optionalTrimmedString.pipe(
+      z
+        .string()
+        .max(100, "Default branch must be at most 100 characters")
+        .optional(),
+    ),
+  })
+  .transform((value) => ({
+    ...value,
+    defaultBranch: value.gitRemoteUrl ? value.defaultBranch ?? "main" : undefined,
+  }));
+
+export type ProjectSettingsFormValues = z.input<typeof projectSettingsFormSchema>;
+export type ProjectSettingsParsed = z.output<typeof projectSettingsFormSchema>;
+
 export const resourceFormSchema = z.object({
   url: z.url("Enter a valid URL"),
   label: z.string().optional().transform((s) => s?.trim() || undefined),

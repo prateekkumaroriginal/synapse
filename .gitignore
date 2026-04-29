@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.worker-workspaces
 *.local
 .env*
 !.env.example

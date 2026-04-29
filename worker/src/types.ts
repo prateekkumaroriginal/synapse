@@ -16,8 +16,7 @@ export type JobStatus =
   | "failed"
   | "cancelled";
 
-export interface GenerateAcJobArgs {
-  phase: "TEST_CASE";
+export interface BaseGenerationJobArgs {
   ticketTitle: string;
   ticketDescription: string | null;
   ticketType: "TASK" | "BUG";
@@ -26,7 +25,17 @@ export interface GenerateAcJobArgs {
   userPrompt: string;
 }
 
-export type JobArgs = GenerateAcJobArgs;
+export interface GenerateAcJobArgs extends BaseGenerationJobArgs {
+  phase: "TEST_CASE";
+}
+
+export interface GeneratePlanJobArgs extends BaseGenerationJobArgs {
+  phase: "PLANNING";
+  approvedAcceptanceCriteria: string;
+  approvedAcceptanceCriteriaArtifactId: string;
+}
+
+export type JobArgs = GenerateAcJobArgs | GeneratePlanJobArgs;
 
 export interface ClaimedJob {
   _id: string;

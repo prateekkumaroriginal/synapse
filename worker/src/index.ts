@@ -1,5 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { handleGenerateAc } from "./handlers/generateAC.js";
+import { handleGeneratePlan } from "./handlers/generatePlan.js";
 import type {
   AcGenerationConfig,
   ClaimedJob,
@@ -7,7 +8,9 @@ import type {
   JobHandlerResult,
 } from "./types.js";
 
-type SupportedJobType = "GENERATE_AC";
+type SupportedJobType = "GENERATE_AC" | "GENERATE_PLAN";
+
+const SUPPORTED_JOB_TYPES = new Set<string>(["GENERATE_AC", "GENERATE_PLAN"]);
 
 interface WorkerConfig {
   convexUrl: string;
@@ -56,21 +59,58 @@ function parseRequiredNonNegativeInteger(name: string): number {
   return value;
 }
 
+function parseOptionalNonNegativeInteger(name: string, fallback: number): number {
+  const rawValue = process.env[name];
+
+  if (rawValue === undefined || rawValue.length === 0) {
+    return fallback;
+  }
+
+  const value = Number.parseInt(rawValue, 10);
+
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`${name} must be a non-negative integer`);
+  }
+
+  return value;
+}
+
+function readClaimJobType(): SupportedJobType {
+  const claimJobType = requireEnv("CLAIM_JOB_TYPE");
+
+  if (!SUPPORTED_JOB_TYPES.has(claimJobType)) {
+    throw new Error(
+      `CLAIM_JOB_TYPE must be one of: ${Array.from(SUPPORTED_JOB_TYPES).join(", ")}`,
+    );
+  }
+
+  return claimJobType as SupportedJobType;
+}
+
 function loadConfig(): WorkerConfig {
-  const pollIntervalMs = Number.parseInt(process.env.POLL_INTERVAL_MS!, 10);
-  const claimJobType = process.env.CLAIM_JOB_TYPE as SupportedJobType;
-  const contextModelProvider = requireEnv(
-    "CONTEXT_MODEL_PROVIDER",
+  const pollIntervalMs = parseRequiredNonNegativeInteger("POLL_INTERVAL_MS");
+  const claimJobType = readClaimJobType();
+  const requiresContextModel = claimJobType === "GENERATE_AC";
+  const contextModelProvider = (
+    requiresContextModel
+      ? requireEnv("CONTEXT_MODEL_PROVIDER")
+      : (process.env.CONTEXT_MODEL_PROVIDER ?? "openai")
   ) as ContextModelProvider;
   const contextModelApiKey =
     contextModelProvider === "bedrock-anthropic"
       ? ""
-      : requireEnv("CONTEXT_MODEL_API_KEY");
+      : requiresContextModel
+        ? requireEnv("CONTEXT_MODEL_API_KEY")
+        : (process.env.CONTEXT_MODEL_API_KEY ?? "");
   const contextModelBaseUrl = process.env.CONTEXT_MODEL_BASE_URL || null;
   const bedrockRegion =
     process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || null;
 
-  if (contextModelProvider === "bedrock-anthropic" && bedrockRegion === null) {
+  if (
+    requiresContextModel &&
+    contextModelProvider === "bedrock-anthropic" &&
+    bedrockRegion === null
+  ) {
     throw new Error("AWS_REGION or AWS_DEFAULT_REGION is required for bedrock-anthropic");
   }
 
@@ -91,12 +131,17 @@ function loadConfig(): WorkerConfig {
     claimJobType,
     acGeneration: {
       contextModelProvider,
-      contextModelName: requireEnv("CONTEXT_MODEL_NAME"),
+      contextModelName: requiresContextModel
+        ? requireEnv("CONTEXT_MODEL_NAME")
+        : (process.env.CONTEXT_MODEL_NAME ?? ""),
       contextModelApiKey,
       contextModelBaseUrl,
-      contextModelTimeoutMs: parseRequiredNonNegativeInteger(
-        "CONTEXT_MODEL_TIMEOUT_MS",
-      ),
+      contextModelTimeoutMs: requiresContextModel
+        ? parseRequiredNonNegativeInteger("CONTEXT_MODEL_TIMEOUT_MS")
+        : parseOptionalNonNegativeInteger(
+            "CONTEXT_MODEL_TIMEOUT_MS",
+            0,
+          ),
       bedrockRegion,
       forgeBin: requireEnv("FORGE_BIN"),
       forgeAgent: optionalEnv("FORGE_AGENT"),
@@ -157,16 +202,16 @@ async function processJob(
   const handlers: Record<SupportedJobType, (claimedJob: ClaimedJob) => Promise<JobHandlerResult>> = {
     GENERATE_AC: async (claimedJob) =>
       await handleGenerateAc(claimedJob, config.acGeneration),
+    GENERATE_PLAN: async (claimedJob) =>
+      await handleGeneratePlan(claimedJob, config.acGeneration),
   };
 
-  // Only GENERATE_AC is wired for Phase 6. Later phases can extend this table
-  // for PLAN, CODE, VALIDATE, and PR-oriented handlers.
   const handler = handlers[job.type as SupportedJobType];
 
   if (!handler) {
     return {
       status: "failed",
-      error: `Unsupported job type in Phase 6 worker: ${job.type}`,
+      error: `Unsupported job type for this worker: ${job.type}`,
     };
   }
 

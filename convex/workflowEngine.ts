@@ -31,7 +31,7 @@ const PHASE_TO_JOB_TYPE: Partial<Record<TicketStatus, JobType>> = {
   CODE_GENERATION: "GENERATE_CODE",
 };
 
-function buildJobArgsForPhase(
+function buildBaseJobArgsForPhase(
   ticket: {
     title: string;
     description?: string;
@@ -52,6 +52,67 @@ function buildJobArgsForPhase(
     gitRemoteUrl: project.gitRemoteUrl ?? null,
     defaultBranch: project.defaultBranch ?? null,
     userPrompt,
+  };
+}
+
+async function getApprovedAcceptanceCriteriaForPlan(
+  ctx: MutationCtx,
+  ticketId: Id<"tickets">,
+): Promise<{
+  approvedAcceptanceCriteria: string;
+  approvedAcceptanceCriteriaArtifactId: Id<"artifacts">;
+}> {
+  const artifact = await ctx.db
+    .query("artifacts")
+    .withIndex("by_ticketId_and_type", (q) =>
+      q.eq("ticketId", ticketId).eq("type", "AC"),
+    )
+    .unique();
+
+  if (artifact === null) {
+    throw new Error("Approved Acceptance Criteria is required before generating a plan");
+  }
+
+  if (artifact.status !== "approved") {
+    throw new Error("Acceptance Criteria must be approved before generating a plan");
+  }
+
+  const content = artifact.content.trim();
+
+  if (content.length === 0) {
+    throw new Error("Approved Acceptance Criteria is empty");
+  }
+
+  return {
+    approvedAcceptanceCriteria: content,
+    approvedAcceptanceCriteriaArtifactId: artifact._id,
+  };
+}
+
+async function buildJobArgsForPhase(
+  ctx: MutationCtx,
+  ticketId: Id<"tickets">,
+  ticket: {
+    title: string;
+    description?: string;
+    type: "TASK" | "BUG";
+  },
+  project: {
+    gitRemoteUrl?: string;
+    defaultBranch?: string;
+  },
+  phase: TicketStatus,
+  userPrompt: string,
+) {
+  const baseArgs = buildBaseJobArgsForPhase(ticket, project, phase, userPrompt);
+
+  if (phase !== "PLANNING") {
+    return baseArgs;
+  }
+
+  return {
+    ...baseArgs,
+    ...(await getApprovedAcceptanceCriteriaForPlan(ctx, ticketId)),
   };
 }
 
@@ -111,7 +172,7 @@ async function enqueuePhaseEntryJob(
     type: jobType,
     status: "queued",
     attempt: 0,
-    args: buildJobArgsForPhase(ticket, project, to, ""),
+    args: await buildJobArgsForPhase(ctx, ticketId, ticket, project, to, ""),
     idempotencyKey,
   });
 }
@@ -290,7 +351,14 @@ export const requestRegeneration = mutation({
       type: jobType,
       status: "queued",
       attempt: 0,
-      args: buildJobArgsForPhase(ticket, project, phase, userPrompt.trim()),
+      args: await buildJobArgsForPhase(
+        ctx,
+        ticketId,
+        ticket,
+        project,
+        phase,
+        userPrompt.trim(),
+      ),
       idempotencyKey: crypto.randomUUID(),
     });
   },
